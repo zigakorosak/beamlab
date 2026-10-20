@@ -1,0 +1,29 @@
+name: Deploy to Namecheap
+
+# Manual only — run from the Actions tab or `gh workflow run "Deploy to Namecheap"`.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Upload dist/ over FTPS
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./dist/
+          # Relative to the FTP account's own root, which is scoped to
+          # public_html/beamlab — so ./, not the full path.
+          server-dir: ./

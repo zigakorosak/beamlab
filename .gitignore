@@ -1,0 +1,8 @@
+node_modules/
+dist/
+archive/
+# The GeoQuiz / Anatomy Quiz sources and the beam-calculator pages this
+# project was modelled on — local only.
+reference/
+scratch-*.mjs
+scratch-*.png

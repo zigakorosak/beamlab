@@ -1,0 +1,1200 @@
+/* Visual language follows GeoQuiz and Anatomy Quiz (reference/1, reference/2):
+   the same dark palette, button styles, menu screens, game header and
+   summary. Where a rule exists in those projects it keeps their class
+   name, so the stylesheets can be compared directly. */
+
+:root {
+  --bg: #10141c;
+  --surface: #1a2030;
+  --surface-raised: #232b40;
+  --text: #e8ecf4;
+  --text-dim: #9aa4bd;
+  --accent: #4f8cff;
+  --accent-dim: #2c3f66;
+  --correct: #34c77b;
+  --wrong: #e0546b;
+  --border: #2c3450;
+  /* The drawing board — Anatomy Quiz's --stage. */
+  --stage: #0a0e16;
+  --grid: #161d2b;
+  --grid-major: #1f2839;
+  /* Beam drawing */
+  --beam: #c9d2e6;
+  --support: #9aa4bd;
+  --load: #ffb347;
+  --reaction: #34c77b;
+  /* Diagrams */
+  --diag-n: #b18cff;
+  --diag-v: #4f8cff;
+  --diag-m: #ff6fb5;
+  --diag-w: #2dd4bf;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* `display: flex` etc. on a class would otherwise beat the hidden attribute. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* Hard viewport cap — the page itself never scrolls (GeoQuiz's reasoning:
+   a fixed root gives mobile browsers no page scroll to react to, so the
+   URL bar doesn't resize the 3D view mid-gesture). Long menus and the
+   summary scroll internally. */
+#app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6em 1.2em;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---------- Menu screens (home, wizard, settings) ---------- */
+
+.menu-screen {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  /* Full height, scrolling internally when taller. */
+  height: 100%;
+  overflow-y: auto;
+}
+
+.menu-screen h1 {
+  text-align: center;
+  margin: 0;
+}
+
+.menu-step h2 {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  margin: 0 0 0.75rem;
+  text-align: center; /* over the centred button column */
+}
+
+.menu-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* Menu screens (home, wizard, settings): one button under the other, all
+   the same width, centred. (In-game multiple choice keeps the wrapping
+   row above.) */
+.menu-screen .menu-options {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  width: min(22rem, 100%);
+  margin: 0 auto;
+}
+
+.menu-option--selected {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.multiple-choice-options {
+  justify-content: center;
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.menu-option--correct {
+  background: var(--correct);
+  border-color: var(--correct);
+  color: #fff;
+}
+
+.menu-option--wrong {
+  background: var(--wrong);
+  border-color: var(--wrong);
+  color: #fff;
+}
+
+/* Visually inert after a result, but still a real (non-disabled) button,
+   so clicking it counts as "click anywhere advances" (inputs.js). */
+.menu-option--locked:not(.menu-option--correct):not(.menu-option--wrong) {
+  opacity: 0.5;
+}
+
+.menu-option--locked:hover {
+  border-color: var(--border);
+}
+
+.menu-option--locked.menu-option--correct:hover {
+  border-color: var(--correct);
+}
+
+.menu-option--locked.menu-option--wrong:hover {
+  border-color: var(--wrong);
+}
+
+.wizard-back {
+  align-self: flex-start;
+  font-size: 0.9rem;
+  padding: 0.4em 0.9em;
+}
+
+.wizard-subtitle {
+  text-align: center;
+  color: var(--text-dim);
+  margin: -1rem 0 0;
+}
+
+.wizard-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 8rem;
+}
+
+.wizard-option-desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+/* How to play (ui/helpScreen.js): readable text in the menu column. */
+.help-section h2 {
+  font-size: 1.05rem;
+  color: var(--text);
+  margin: 0 0 0.4rem;
+}
+
+.help-section ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.help-section li + li {
+  margin-top: 0.3rem;
+}
+
+.help-screen {
+  gap: 1.4rem;
+}
+
+.loading-text {
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* ---------- Game / Build screens ---------- */
+
+.game-screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem 0 0;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.game-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-weight: 600;
+  padding: 0 1rem;
+  min-height: 2.4rem;
+}
+
+.game-timer {
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.game-header .action-button {
+  margin-left: auto;
+  padding: 0.4em 1.4em;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+
+.game-header .exit-button {
+  font-weight: 400;
+  font-size: 0.9rem;
+}
+
+.game-header .game-menu {
+  margin-left: auto;
+  position: relative;
+}
+
+.game-menu-toggle {
+  padding: 0.4em 0.9em;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.game-menu-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  z-index: 20;
+  min-width: 8.5rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.game-menu-dropdown button {
+  white-space: nowrap;
+  text-align: left;
+}
+
+.answer-area {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+}
+
+.feedback-area {
+  display: flex;
+  justify-content: center;
+  padding: 0 1rem 0.75rem;
+}
+
+.feedback-area:empty {
+  display: none;
+}
+
+.answer-feedback {
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.action-button {
+  align-self: center;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.6em 2em;
+  min-width: 10rem;
+}
+
+/* ---------- Summary ---------- */
+
+.game-summary {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-height: 100%;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.game-summary h2 {
+  margin: 0;
+}
+
+.summary-score {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.summary-time {
+  color: var(--text-dim);
+  margin: -0.5rem 0 0;
+}
+
+.summary-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.summary-list li {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.summary-list li:last-child {
+  border-bottom: none;
+}
+
+.summary-correct {
+  color: var(--correct);
+}
+
+.summary-wrong {
+  color: var(--wrong);
+}
+
+.game-summary button {
+  align-self: center;
+}
+
+/* Briefly inert right after the report appears (game.js REPORT_GUARD_MS),
+   without dimming: a stray second click on "See Results" passes through. */
+.game-summary--guarded button {
+  pointer-events: none;
+}
+
+@media (max-width: 520px) {
+  .game-header {
+    gap: 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .menu-screen {
+    padding: 2rem 1rem;
+  }
+}
+
+/* ---------- Beam Lab: shared board ---------- */
+
+.header-spacer {
+  flex: 1;
+}
+
+.game-header .action-button + .game-menu,
+.build-screen .game-header .game-menu {
+  margin-left: 0;
+}
+
+.tool-button {
+  padding: 0.35em 0.8em;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+
+.build-title {
+  font-weight: 700;
+}
+
+.stage-chip {
+  padding: 0.15em 0.7em;
+  border-radius: 999px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.board-wrap {
+  background: var(--stage);
+  width: 100%;
+}
+
+.board {
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.board text {
+  font-size: 12px;
+  fill: var(--text);
+}
+
+.grid line {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+
+.grid line.major {
+  stroke: var(--grid-major);
+}
+
+.board-hint {
+  fill: var(--text-dim) !important;
+  font-size: 15px !important;
+}
+
+/* Beam, supports, hinges */
+.beam {
+  fill: var(--beam);
+}
+
+.support-tri {
+  fill: var(--surface-raised);
+  stroke: var(--support);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.roller {
+  fill: var(--surface-raised);
+  stroke: var(--support);
+  stroke-width: 1.5;
+}
+
+.ground,
+.wall {
+  stroke: var(--support);
+  stroke-width: 2;
+}
+
+.hatch {
+  stroke: var(--support);
+  stroke-width: 1;
+}
+
+.support-name {
+  font-weight: 700;
+  fill: var(--text-dim) !important;
+}
+
+.hinge {
+  fill: var(--stage);
+  stroke: var(--beam);
+  stroke-width: 2.5;
+}
+
+/* Invisible, wider grab areas. Only lines get a fat stroke: on a rect or
+   circle it spilled 9 px past the shape and swallowed the beam's end
+   handle. */
+.hit {
+  fill: transparent;
+  stroke: none;
+}
+
+line.hit {
+  stroke: transparent;
+  stroke-width: 18;
+}
+
+/* Loads */
+.load-arrow line,
+.dist-arrow line,
+.moment-arrow path:first-child {
+  stroke: var(--load);
+  stroke-width: 2.4;
+  fill: none;
+}
+
+.dist-arrow line {
+  stroke-width: 1.4;
+}
+
+.load-arrow path,
+.dist-arrow path,
+.moment-arrow path:last-child {
+  fill: var(--load);
+}
+
+.dist-area {
+  fill: color-mix(in srgb, var(--load) 16%, transparent);
+  stroke: var(--load);
+  stroke-width: 1.2;
+}
+
+.load-label {
+  fill: var(--load) !important;
+  font-weight: 600;
+}
+
+.resultant line {
+  stroke: var(--load);
+  stroke-width: 1.6;
+}
+
+.resultant path {
+  fill: var(--load);
+}
+
+.resultant-label {
+  fill: var(--load) !important;
+  font-style: italic;
+}
+
+/* Reactions: solid when known, dashed with names when asked for. */
+.reaction-arrow line,
+.reaction-arrow path:first-child {
+  stroke: var(--reaction);
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.reaction-arrow path:last-child,
+.reaction-arrow > path:only-child {
+  fill: var(--reaction);
+}
+
+.reaction-label {
+  fill: var(--reaction) !important;
+  font-weight: 600;
+}
+
+/* Dimension line */
+.ruler line {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+}
+
+.ruler text {
+  fill: var(--text-dim) !important;
+  font-size: 11px !important;
+}
+
+/* Selection and handles (Build) */
+.is-selected .beam,
+.beam.is-selected {
+  fill: #e6ecff;
+  filter: drop-shadow(0 0 4px var(--accent));
+}
+
+.is-selected .support-tri,
+.is-selected .roller,
+.is-selected .hinge {
+  stroke: var(--accent);
+}
+
+.is-selected .wall,
+.is-selected .ground,
+.is-selected .hatch {
+  stroke: var(--accent);
+}
+
+.is-selected .dist-area {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.point-load.is-selected .load-arrow line,
+.moment-load.is-selected .moment-arrow path:first-child {
+  stroke: #ffe1b0;
+  filter: drop-shadow(0 0 3px var(--load));
+}
+
+.handle {
+  fill: var(--surface-raised);
+  stroke: var(--accent);
+  stroke-width: 2;
+  cursor: ew-resize;
+}
+
+.dist-handle {
+  cursor: move;
+}
+
+.build-screen [data-kind] {
+  cursor: grab;
+  touch-action: none;
+}
+
+.crosshair {
+  stroke: var(--text-dim);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+/* Diagrams */
+.band-bg {
+  fill: var(--surface);
+  opacity: 0.55;
+}
+
+.axis {
+  stroke: var(--text-dim);
+  stroke-width: 1.2;
+}
+
+.band-title {
+  font-size: 18px !important;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.band-unit,
+.band-sign {
+  fill: var(--text-dim) !important;
+  font-size: 11px !important;
+}
+
+.band-sign {
+  font-size: 14px !important;
+  font-weight: 700;
+}
+
+.diagram-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.diagram-fill {
+  stroke: none;
+}
+
+.diag-n .diagram-line { stroke: var(--diag-n); }
+.diag-v .diagram-line { stroke: var(--diag-v); }
+.diag-m .diagram-line { stroke: var(--diag-m); }
+.diag-w .diagram-line { stroke: var(--diag-w); stroke-width: 2.5; }
+.diag-n .diagram-fill { fill: color-mix(in srgb, var(--diag-n) 22%, transparent); }
+.diag-v .diagram-fill { fill: color-mix(in srgb, var(--diag-v) 22%, transparent); }
+.diag-m .diagram-fill { fill: color-mix(in srgb, var(--diag-m) 22%, transparent); }
+.diag-n .band-title { fill: var(--diag-n) !important; }
+.diag-v .band-title { fill: var(--diag-v) !important; }
+.diag-m .band-title { fill: var(--diag-m) !important; }
+.diag-w .band-title { fill: var(--diag-w) !important; }
+
+.value-label {
+  font-size: 11.5px !important;
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--stage);
+  stroke-width: 3px;
+}
+
+.value-label.is-peak {
+  font-weight: 700;
+}
+
+.peak-dot {
+  fill: var(--text);
+}
+
+.is-faint {
+  opacity: 0.7;
+}
+
+/* ---------- Build ---------- */
+
+.build-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.palette {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0.5rem 0.5rem;
+  overflow-y: auto;
+  width: 6.5rem;
+  flex-shrink: 0;
+}
+
+.palette-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  padding: 0.35rem 0.25rem;
+  font-size: 0.75rem;
+  touch-action: none;
+  cursor: grab;
+}
+
+.tile-icon {
+  width: 48px;
+  height: 32px;
+}
+
+.icon-beam {
+  fill: var(--beam);
+}
+
+.icon-line {
+  fill: none;
+  stroke: var(--support);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.icon-hinge {
+  fill: var(--surface-raised);
+  stroke: var(--beam);
+  stroke-width: 2;
+}
+
+.icon-dist {
+  fill: color-mix(in srgb, var(--load) 25%, transparent);
+  stroke: var(--load);
+  stroke-width: 1.2;
+}
+
+.icon-load line,
+.icon-moment path:first-child {
+  stroke: var(--load);
+  stroke-width: 2.2;
+  fill: none;
+}
+
+.icon-load path,
+.icon-moment path:last-child {
+  fill: var(--load);
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: var(--surface-raised);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 0.2rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.drag-ghost.is-placed {
+  opacity: 0.35;
+}
+
+.drag-ghost.is-invalid {
+  border-color: var(--wrong);
+}
+
+.workspace {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-toggles {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0 0.75rem 0.5rem;
+}
+
+.view-toggle {
+  padding: 0.2em 0.85em;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.view-toggle.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.status-line {
+  padding: 0.5rem 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+  white-space: pre-wrap;
+  min-height: 2.2rem;
+}
+
+.status-line.is-error {
+  color: var(--wrong);
+}
+
+.inspector {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 30;
+  width: min(17rem, calc(100vw - 2rem));
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.inspector-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inspector-title {
+  font-weight: 700;
+}
+
+.inspector-close {
+  padding: 0.1em 0.6em;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.inspector-field {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr 2.6rem;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.inspector-input,
+.reaction-input {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  padding: 0.35em 0.5em;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.inspector-input.is-invalid {
+  border-color: var(--wrong);
+}
+
+.unit {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.inspector-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.choice {
+  padding: 0.25em 0.6em;
+  font-size: 0.85rem;
+}
+
+.choice.is-active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.inspector-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.inspector-delete {
+  color: var(--wrong);
+}
+
+/* Popup (Examples) — Anatomy Quiz's Subjects popup */
+.popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(5, 8, 14, 0.6);
+}
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(100%, 26rem);
+  max-height: 100%;
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+
+.popup-title {
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.popup-hint {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.popup .action-button {
+  min-width: 8rem;
+}
+
+.example-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ---------- Practice ---------- */
+
+.round-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-bottom: 1rem;
+}
+
+.round-prompt {
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.prompt-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.prompt-sub {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  max-width: 46rem;
+  margin: 0.25rem auto 0;
+}
+
+.reaction-form {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+}
+
+.reaction-row {
+  display: grid;
+  grid-template-columns: 2.6rem 6.5rem 2.4rem 4.5rem;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.reaction-name {
+  font-weight: 700;
+  color: var(--reaction);
+  text-align: right;
+}
+
+.reaction-result {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.reaction-input.input--correct {
+  border-color: var(--correct);
+}
+
+.reaction-input.input--wrong {
+  border-color: var(--wrong);
+}
+
+.value-box {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.value-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 14rem;
+}
+
+.value-where {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.value-entry {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.value-entry .reaction-input {
+  width: 7rem;
+}
+
+.feedback-area {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.answer-note {
+  color: var(--text-dim);
+}
+
+.steps {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  max-width: min(46rem, 100%);
+  overflow-x: auto;
+}
+
+/* The player's diagram */
+.editor.is-editable {
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.value-grid line {
+  stroke: var(--grid-major);
+  stroke-width: 1;
+}
+
+.value-grid text {
+  fill: var(--text-dim) !important;
+  font-size: 10px !important;
+}
+
+.key-guide {
+  stroke: var(--border);
+  stroke-dasharray: 2 4;
+}
+
+.dot {
+  fill: var(--text);
+  stroke: var(--stage);
+  stroke-width: 2;
+  cursor: ns-resize;
+}
+
+.dot.is-mid {
+  fill: var(--surface-raised);
+  stroke: var(--text);
+}
+
+.dot.is-correct {
+  fill: var(--correct);
+}
+
+.dot.is-wrong {
+  fill: var(--wrong);
+}
+
+.dot-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.dot-value {
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: var(--stage);
+  stroke-width: 3px;
+}
+
+.is-solution .diagram-line {
+  stroke: var(--text) !important;
+  stroke-dasharray: 6 4;
+  stroke-width: 1.6;
+}
+
+.is-solution .diagram-fill {
+  fill: rgba(255, 255, 255, 0.06) !important;
+}
+
+.summary-round {
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .build-body {
+    flex-direction: column;
+  }
+
+  .palette {
+    flex-direction: row;
+    width: auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0 0.5rem 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .palette-tile {
+    flex-shrink: 0;
+    width: 4.6rem;
+  }
+
+  .build-screen .game-header {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .reaction-row {
+    grid-template-columns: 2.4rem 5.5rem 2.2rem 4rem;
+  }
+}
