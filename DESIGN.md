@@ -291,7 +291,7 @@ runs `npm test`, builds on GitHub's runner and FTPS-uploads `dist/`. It is
 `vite.config.js` sets `base: "/beamlab/"`. If the deploy path changes,
 that line must change to match.
 
-**One-time setup:**
+**One-time setup** (all done; first deploy 2026-10-20):
 
 1. ~~Create the GitHub repo and push~~: done, `zigakorosak/beamlab` (public).
 2. cPanel FTP account scoped to `public_html/beamlab`.

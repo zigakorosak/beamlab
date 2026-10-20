@@ -7,7 +7,10 @@ Newest first. What changed and why.
 User request: deploy. The first run failed at `npm test`: the runner's
 Node 22 reads `node --test test/` as one file named `test` (Node 26
 here takes a directory). `npm test` is now `node --test "test/*.test.mjs"`,
-which both understand. See MISTAKES.md.
+which both understand. See MISTAKES.md. Second run green (tests, build,
+FTPS upload); https://zigakorosak.com/beamlab/ redirects to www like
+GeoQuiz, serves "Beam Lab", assets 200, Build opens in Firefox with no
+page errors.
 
 ## 2026-10-20: Wheel on the diagram, hover selects a box
 
