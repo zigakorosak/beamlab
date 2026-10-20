@@ -2,6 +2,48 @@
 
 Newest first. What changed and why.
 
+## 2026-10-20: Wheel on the diagram, hover selects a box
+
+User request: scrolling should also move the selected point on the
+diagram; hovering a value box should select it without a click.
+
+- `diagramEditor.attach`: a wheel over the band steps the selected dot by
+  one snap step (not while dragging, not after Confirm), then the value
+  box is synced and selected as for any dot pick.
+- `selectOnFocus` (all number boxes): a mouse `pointerenter` focuses the
+  box, which selects its text. Mouse only, so touch is unchanged;
+  read-only boxes (after Confirm) are skipped.
+
+Checked in Firefox: hovering a reaction box focuses it with "12.5"
+selected, typing 9 replaces it; dot 2 selected, wheel up ×3 over the
+band → 1.5 with the box's text selected; hovering the value box from
+elsewhere focuses and selects it; the page didn't scroll. No page errors.
+
+## 2026-10-20: Approximate answers, wheel, select on focus
+
+User request: approximate values should count as correct; scrolling over a
+box should change its value; selecting a dot should select the text in
+the value box so it can be typed over.
+
+- New `core/grading.js`, one rule for reactions and dots: right within
+  max(5 % of the value, 3 % of the problem's largest value, 0.05); dots
+  never stricter than one snap step. Was 1 % for reactions and 2 % of the
+  maximum for dots. A close-but-not-exact reaction shows "✓ exact".
+  `test/grading.test.mjs`: 4 checks.
+- Wheel over a reaction box: ±1 (Shift ±0.1). Over the dot value box: one
+  snap step, like + −. Non-passive listener, so the page doesn't scroll;
+  reads deltaX too, since Firefox turns Shift+wheel sideways.
+- Every box selects its text on focus (the mouseup right after a click
+  focus is eaten, or it would drop the selection). Picking a dot (click,
+  drag, ‹ ›, Tab, arrows) focuses the value box with the text selected,
+  except after a touch (no keyboard popping up mid-drag). ← → ↑ ↓ in the
+  box act as on the board.
+
+Checked in Firefox (Playwright): wheel 3 up → 3, down → 2, Shift up →
+2.1; click into a box selects all and typing replaces; clicking a dot
+focuses the box with "0" selected, typing 5 sets it; → moves on with the
+text selected; dragging a dot keeps the box in step. No page errors.
+
 ## 2026-10-20: GitHub repo
 
 User request: create the repo (public, like `geoquiz` and `anatomyquiz`).

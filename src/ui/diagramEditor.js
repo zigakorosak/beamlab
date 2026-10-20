@@ -10,6 +10,7 @@
 
 import { maxAbs, momentExtrema, sampleDiagram } from "../core/solver.js";
 import { niceStep, fmt } from "../core/format.js";
+import { closeEnough } from "../core/grading.js";
 import { s } from "../render/svg.js";
 import { DIAGRAMS, drawDiagram, keyLabels } from "../render/diagramView.js";
 
@@ -23,7 +24,8 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
   const gridStep = niceStep((trueMax * 1.3) / 4);
   const scaleMax = Math.ceil((trueMax * 1.3) / gridStep) * gridStep;
   const step = niceStep(scaleMax / 40);
-  const tol = Math.max(0.02 * trueMax, 0.6 * step, 0.01);
+  // Approximate is right (grading.js); never stricter than one snap step.
+  const ok = (d) => closeEnough(d.value, d.answer, trueMax, step);
 
   // ---- Dots
   const xs = sol.xs;
@@ -124,7 +126,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
     }
 
     dots.forEach((d, i) => {
-      const cls = revealed ? (Math.abs(d.value - d.answer) <= tol ? ".is-correct" : ".is-wrong") : "";
+      const cls = revealed ? (ok(d) ? ".is-correct" : ".is-wrong") : "";
       const px = dotX(d);
       const py = valueToY(d.value);
       if (i === selected && !revealed) g.append(s("circle.dot-ring", { cx: px, cy: py, r: 11 }));
@@ -168,23 +170,35 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
       svg.setPointerCapture(e.pointerId);
       // A press on the band (not on the dot) moves the dot there at once.
       if (e.target.dataset?.dot === undefined) dots[idx].value = clampSnap(yToValue(p.y));
-      onSelect?.();
+      onSelect?.(e);
       redraw();
     };
     const onMove = (e) => {
       if (!dragging) return;
       dots[selected].value = clampSnap(yToValue(local(e).y));
-      onSelect?.();
+      onSelect?.(e);
       redraw();
     };
     const onUp = (e) => {
       dragging = false;
       if (svg.hasPointerCapture?.(e.pointerId)) svg.releasePointerCapture(e.pointerId);
     };
-    const handlers = { pointerdown: onDown, pointermove: onMove, pointerup: onUp, pointercancel: onUp };
-    for (const [type, fn] of Object.entries(handlers)) svg.addEventListener(type, fn);
+    // The wheel over the band steps the selected dot (up = higher).
+    const onWheel = (e) => {
+      if (revealed || !geom || dragging) return;
+      const p = local(e);
+      if (p.y < geom.top || p.y > geom.top + geom.height) return;
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      e.preventDefault();
+      dots[selected].value = clampSnap(dots[selected].value + (d < 0 ? 1 : -1) * step);
+      onSelect?.(e);
+      redraw();
+    };
+    const handlers = { pointerdown: onDown, pointermove: onMove, pointerup: onUp, pointercancel: onUp, wheel: onWheel };
+    for (const [type, fn] of Object.entries(handlers)) svg.addEventListener(type, fn, { passive: false });
     return () => {
-      for (const [type, fn] of Object.entries(handlers)) svg.removeEventListener(type, fn);
+      for (const [type, fn] of Object.entries(handlers)) svg.removeEventListener(type, fn, { passive: false });
     };
   }
 
@@ -213,7 +227,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
     },
     grade() {
       revealed = true;
-      const right = dots.filter((d) => Math.abs(d.value - d.answer) <= tol).length;
+      const right = dots.filter(ok).length;
       return { right, total: dots.length, ok: right === dots.length };
     },
     draw,

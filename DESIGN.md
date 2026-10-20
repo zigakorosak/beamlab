@@ -206,9 +206,12 @@ others are one stage. Single-diagram tasks show the reactions solved. In a
 full solution, diagrams already done stay up (solved, faint) as help.
 
 - **Reactions**: one field per component, dashed named arrows on the beam.
-  Right within max(0.02, 1 %). Empty counts as 0. Enter goes to the next
-  field, and confirms from the last. The result shows ✓ or the right value
-  per field, the solved reactions on the beam, the distributed loads'
+  Approximate is right (`core/grading.js`): within max(5 % of the value,
+  3 % of the largest reaction, 0.05). Empty counts as 0. Enter goes to the
+  next field, and confirms from the last. Focusing a field (or hovering it with
+  the mouse, which focuses it) selects its text, so typing replaces it; the mouse wheel over a field steps it by
+  1 (Shift: 0.1). The result shows ✓ (with the exact value when the answer
+  was only close), or ✗ and the right value per field, the solved reactions on the beam, the distributed loads'
   resultants (dashed), and `equilibriumSteps`: resultants, ΣFx, ΣFy, ΣM
   about the first support, "ΣM = 0" for the part right of each hinge,
   and a note on indeterminate beams.
@@ -216,10 +219,14 @@ full solution, diagrams already done stay up (solved, faint) as help.
   plus a middle dot on a segment where the curve bends (V under a varying
   load, M under any distributed load); the curve through a middle dot is a
   parabola. Drag dots (a press within 26 px of a dot's column grabs it and
-  moves it there), or pick one (‹ › or ← →) and type, or nudge (− + or
-  ↑ ↓). The y range is 1.3 × the true maximum, rounded up to the value
+  moves it there), or pick one (‹ › or ← →) and type, or nudge (− +,
+  ↑ ↓, or the wheel over the value box or anywhere on the diagram's band). Picking a dot puts the caret in
+  the value box with its text selected, so typing replaces it; not after
+  a touch, where focusing would pop up the keyboard. ← → ↑ ↓ work the
+  same in the box. The y range is 1.3 × the true maximum, rounded up to the value
   grid; the snap step is a nice number near 1/40 of it; a dot is right
-  within max(2 % of the maximum, 0.6 × step, 0.01). After Confirm: dots
+  by the same rule as reactions (5 % of its value or 3 % of the
+  diagram's maximum), and never stricter than one snap step. After Confirm: dots
   green/red, the exact diagram dashed over the player's, with its labels,
   and for M the largest |M| and where.
 - One point per stage that's entirely right. Summary: "Game Over", score,

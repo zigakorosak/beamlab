@@ -15,6 +15,7 @@ import { momentExtrema, solve } from "../core/solver.js";
 import { equilibriumSteps } from "../core/explain.js";
 import { loadSettings } from "../core/settings.js";
 import { fmt, parseNumber } from "../core/format.js";
+import { closeEnough, isExact } from "../core/grading.js";
 import { drawModel, MODEL_BAND } from "../render/beamView.js";
 import { BAND_HEIGHT } from "../render/diagramView.js";
 import { makeScale, solutionBands } from "../render/board.js";
@@ -31,8 +32,49 @@ const STAGE_NAMES = { reactions: "Reactions", N: "Axial force", V: "Shear force"
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)}s`;
 
-/** Typed reactions: right to two decimals, or within 1 %. */
-const reactionOk = (given, answer) => Math.abs(given - answer) <= Math.max(0.02, 0.01 * Math.abs(answer));
+/** The text in a number box, as typed: plain "-", no "−". */
+const boxText = (v) => fmt(v).replace("−", "-");
+
+/** Focusing a box selects its text, so typing replaces it. A click would
+ *  put the caret back on mouseup, so the mouseup right after focus is eaten.
+ *  Hovering a box with the mouse focuses it too, no click needed. */
+function selectOnFocus(input) {
+  let justFocused = false;
+  input.addEventListener("pointerenter", (e) => {
+    if (e.pointerType !== "mouse" || input.readOnly || document.activeElement === input) return;
+    input.focus({ preventScroll: true });
+  });
+  input.addEventListener("focus", () => {
+    input.select();
+    justFocused = true;
+  });
+  input.addEventListener("mouseup", (e) => {
+    if (justFocused) e.preventDefault();
+    justFocused = false;
+  });
+  input.addEventListener("blur", () => (justFocused = false));
+}
+
+/** Scrolling over a box steps its value: `onStep(+1 | −1, e)`. */
+function wheelSteps(input, onStep) {
+  input.addEventListener(
+    "wheel",
+    (e) => {
+      if (input.readOnly) return;
+      // Firefox turns Shift+wheel into a sideways scroll, so look at both.
+      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+      if (!d) return;
+      e.preventDefault();
+      onStep(d < 0 ? 1 : -1, e);
+    },
+    { passive: false },
+  );
+}
+
+// The last pointer kind, so selecting a dot by touch doesn't pop up the
+// phone keyboard (focusing the value box would).
+let lastPointer = "mouse";
+document.addEventListener("pointerdown", (e) => (lastPointer = e.pointerType), true);
 
 export function renderGame(root, navigate, config, backState) {
   const settings = loadSettings();
@@ -182,7 +224,11 @@ export function renderGame(root, navigate, config, backState) {
         renderBoard();
         syncValueBox();
       },
-      () => syncValueBox(),
+      () => {
+        // Selecting a dot readies its value for typing over.
+        syncValueBox(true);
+        focusValue();
+      },
     );
   }
 
@@ -199,6 +245,15 @@ export function renderGame(root, navigate, config, backState) {
         for (const c of comps) {
           const name = c === "m" ? `M${r.name}` : `${r.name}${c}`;
           const input = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": name });
+          selectOnFocus(input);
+          // 1 kN a notch, 0.1 with Shift.
+          wheelSteps(input, (dir, e) => {
+            if (phase !== "answering") return;
+            const v = (parseNumber(input.value) ?? 0) + dir * (e.shiftKey ? 0.1 : 1);
+            input.value = boxText(Math.round(v * 1e6) / 1e6);
+            input.focus({ preventScroll: true });
+            input.select();
+          });
           input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -229,6 +284,14 @@ export function renderGame(root, navigate, config, backState) {
     }
     valueLabel = h("span.value-where");
     valueInput = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": "Value of the selected dot" });
+    selectOnFocus(valueInput);
+    wheelSteps(valueInput, (dir) => {
+      if (phase !== "answering") return;
+      editor.nudge(dir);
+      renderBoard();
+      syncValueBox(true);
+      focusValue(true);
+    });
     valueInput.addEventListener("input", () => {
       const v = parseNumber(valueInput.value);
       if (v === null || phase !== "answering") return;
@@ -244,6 +307,14 @@ export function renderGame(root, navigate, config, backState) {
         editor.select(editor.selected + (e.shiftKey ? -1 : 1));
         renderBoard();
         syncValueBox(true);
+        focusValue();
+      } else if (e.key in BOX_KEYS && phase === "answering") {
+        // Same keys as on the board: ← → pick a dot, ↑ ↓ move it.
+        e.preventDefault();
+        BOX_KEYS[e.key]();
+        renderBoard();
+        syncValueBox(true);
+        focusValue();
       }
     });
     const nudge = (dir) => () => {
@@ -251,12 +322,14 @@ export function renderGame(root, navigate, config, backState) {
       editor.nudge(dir);
       renderBoard();
       syncValueBox(true);
+      focusValue();
     };
     const pick = (dir) => () => {
       if (phase !== "answering") return;
       editor.select(editor.selected + dir);
       renderBoard();
       syncValueBox(true);
+      focusValue();
     };
     answerArea.append(
       h(
@@ -276,8 +349,23 @@ export function renderGame(root, navigate, config, backState) {
   function syncValueBox(force = false) {
     if (!valueInput || !editor) return;
     valueLabel.textContent = `Dot ${editor.selected + 1} of ${editor.dots.length}: ${editor.describe()}`;
-    if (force || document.activeElement !== valueInput) valueInput.value = fmt(editor.dots[editor.selected].value).replace("−", "-");
+    if (force || document.activeElement !== valueInput) valueInput.value = boxText(editor.dots[editor.selected].value);
   }
+
+  /** Put the caret in the value box with its text selected, ready to type
+   *  over (not after a touch, unless `always`: that would open the keyboard). */
+  function focusValue(always = false) {
+    if (!valueInput || phase !== "answering" || (lastPointer === "touch" && !always)) return;
+    valueInput.focus({ preventScroll: true });
+    valueInput.select();
+  }
+
+  const BOX_KEYS = {
+    ArrowUp: () => editor.nudge(1),
+    ArrowDown: () => editor.nudge(-1),
+    ArrowRight: () => editor.select(editor.selected + 1),
+    ArrowLeft: () => editor.select(editor.selected - 1),
+  };
 
   // ---------- Confirm / Next
   function onAction() {
@@ -293,13 +381,15 @@ export function renderGame(root, navigate, config, backState) {
     if (st === "reactions") {
       total = reactionInputs.length;
       right = 0;
+      const scale = Math.max(...reactionInputs.map((ri) => Math.abs(ri.answer)));
       for (const ri of reactionInputs) {
         const v = parseNumber(ri.input.value) ?? 0;
-        const ok = reactionOk(v, ri.answer);
+        const ok = closeEnough(v, ri.answer, scale);
         if (ok) right++;
         ri.input.readOnly = true;
         ri.input.classList.add(ok ? "input--correct" : "input--wrong");
-        ri.result.textContent = ok ? "✓" : `✗ ${fmt(ri.answer)}`;
+        // Close enough still shows the exact value.
+        ri.result.textContent = ok ? (isExact(v, ri.answer) ? "✓" : `✓ ${fmt(ri.answer)}`) : `✗ ${fmt(ri.answer)}`;
         ri.result.classList.add(ok ? "summary-correct" : "summary-wrong");
       }
     } else {
@@ -403,12 +493,12 @@ export function renderGame(root, navigate, config, backState) {
       return;
     }
     if (!editor || phase !== "answering" || inInput) return;
-    const moves = { ArrowUp: () => editor.nudge(1), ArrowDown: () => editor.nudge(-1), ArrowRight: () => editor.select(editor.selected + 1), ArrowLeft: () => editor.select(editor.selected - 1) };
-    if (moves[e.key]) {
+    if (BOX_KEYS[e.key]) {
       e.preventDefault();
-      moves[e.key]();
+      BOX_KEYS[e.key]();
       renderBoard();
       syncValueBox(true);
+      focusValue();
     }
   };
   document.addEventListener("keydown", onKey);

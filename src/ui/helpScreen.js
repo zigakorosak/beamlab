@@ -16,9 +16,11 @@ const SECTIONS = [
     "Practice",
     [
       "Pick what to practise (reactions, the shear diagram, the moment diagram, or all of it), the kind of beam, the loads, and how many beams.",
+      "Close is good enough: an answer within about 5 % counts as right (and the exact value is shown next to it).",
       "Reactions: type each one in kN or kNm. Positive is the way the dashed arrow points (→, ↑, ↺); a negative value means the other way.",
       "Diagrams: every key point (a support, a load, a hinge, the start or end of a distributed load) has a dot just left and just right of it, because the diagram can jump there. Drag the dots up or down, or tap one and type its value. Under a distributed load a middle dot bends the curve.",
       "Confirm with the button or Enter. Right values turn green, wrong ones red, and the exact diagram is drawn over yours. After the reactions you also get the equilibrium equations.",
+      "Picking a dot selects the number in the value box, so you can just type over it. Pointing at a box selects its number too. Scrolling over a box steps its value (for reactions 1 kN, with Shift 0.1); scrolling over the diagram moves the selected dot.",
       "Keys: ← → pick a dot, ↑ ↓ move it, Enter confirms and goes on.",
     ],
   ],
