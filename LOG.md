@@ -2,6 +2,13 @@
 
 Newest first. What changed and why.
 
+## 2026-10-20: First deploy; test glob
+
+User request: deploy. The first run failed at `npm test`: the runner's
+Node 22 reads `node --test test/` as one file named `test` (Node 26
+here takes a directory). `npm test` is now `node --test "test/*.test.mjs"`,
+which both understand. See MISTAKES.md.
+
 ## 2026-10-20: Wheel on the diagram, hover selects a box
 
 User request: scrolling should also move the selected point on the

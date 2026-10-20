@@ -76,3 +76,7 @@ printed model, a probe of what's under the pointer) before the next fix.
   resolve. Delete them when done.
 - Playwright's Firefox build is in `~/.cache/ms-playwright` (shared with
   the other projects).
+- `node --test test/` works on the local Node 26 but CI runs Node 22,
+  which reads the directory as a single file `test` and fails. Use a glob
+  (`node --test "test/*.test.mjs"`). Local Node is newer than CI's: a
+  passing `npm test` here doesn't prove CI passes.
