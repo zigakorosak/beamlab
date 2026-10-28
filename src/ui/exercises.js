@@ -15,7 +15,7 @@
 import { EXERCISES, GROUPS, byId } from "../exercises/registry.js";
 import { num, plain, richParts, rng } from "../exercises/kit.js";
 import { figure } from "../exercises/draw.js";
-import { closeEnough } from "../core/grading.js";
+import { answerOk } from "../core/grading.js";
 import { parseNumber } from "../core/format.js";
 import { h } from "./dom.js";
 import { selectOnFocus, wheelNumber } from "./inputKit.js";
@@ -147,7 +147,8 @@ export function renderExercise(root, navigate, config) {
     current.inputs = task.answers.map((a) => {
       const input = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": plain(a.label) });
       selectOnFocus(input);
-      wheelNumber(input, a.step ?? 1, () => !current.checked);
+      // Keep every typed digit (and the decimal comma): answers can be 0,0588.
+      wheelNumber(input, a.step ?? 1, () => !current.checked, (v) => String(v).replace(".", ","));
       input.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
         e.preventDefault();
@@ -194,12 +195,10 @@ export function renderExercise(root, navigate, config) {
     function check() {
       if (current.checked) return;
       current.checked = true;
-      // Answers near zero are judged against the largest value in the same unit.
-      const scaleOf = (unit) => Math.max(...task.answers.filter((x) => x.unit === unit).map((x) => Math.abs(x.value)));
       let right = 0;
       for (const { a, input, result } of current.inputs) {
         const v = parseNumber(input.value);
-        const ok = v !== null && (a.tol !== undefined ? Math.abs(v - a.value) <= a.tol : closeEnough(v, a.value, a.scale ?? scaleOf(a.unit), 0, 1e-6));
+        const ok = v !== null && answerOk(v, a);
         if (ok) right++;
         input.readOnly = true;
         input.classList.add(ok ? "input--correct" : "input--wrong");
@@ -250,7 +249,7 @@ export function renderExercise(root, navigate, config) {
     clearInterval(timerId);
     const got = results.reduce((t, r) => t + r.points, 0);
     const max = results.reduce((t, r) => t + r.max, 0);
-    const mins = (performance.now() - started) / 60000;
+    const secs = Math.round((performance.now() - started) / 1000);
     const pct = max ? (100 * got) / max : 0;
     body.replaceChildren(
       h(
@@ -258,7 +257,7 @@ export function renderExercise(root, navigate, config) {
         {},
         h("h2", {}, "Konec izpita"),
         h("p.summary-score", {}, `${num(got, 3)} / ${max} točk (${Math.round(pct)} %)`),
-        h("p.summary-time", {}, `Čas: ${Math.floor(mins)} min ${Math.round((mins % 1) * 60)} s`),
+        h("p.summary-time", {}, `Čas: ${Math.floor(secs / 60)} min ${secs % 60} s`),
         h("p.summary-time", {}, pct >= 50 ? "Opravljeno (meja 50 %)." : "Ni opravljeno (meja 50 %)."),
         h(
           "ul.summary-list",

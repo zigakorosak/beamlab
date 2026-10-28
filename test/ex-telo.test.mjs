@@ -41,6 +41,16 @@ test("beam on half-cylinders (9.9.2016): B = 3172, Ax = 1586, Ay = 0 N", () => {
   near(answer(ex, "Ay"), 0);
 });
 
+test("beam on half-cylinders: a small A_y from the beam's weight is not passed by 0", async () => {
+  const { answerOk } = await import("../src/core/grading.js");
+  // L = 3,5, a = 2: A_y = G_n(1 − L/2a) = 0,125·G_n = 24,5 N, B ≈ 3000 N.
+  const ex = nosilecValj.build({ L: 3.5, a: 2, m: 300, mn: 20, r1: 1, r2: 1, e: 1, side: 1, g: 9.81 });
+  const Ay = ex.answers.find((a) => a.key === "Ay");
+  near(Ay.value, 0.125 * 20 * 9.81);
+  assert.ok(answerOk(Ay.value + 2, Ay), "rounding in G + G_n − B sin φ passes");
+  assert.ok(!answerOk(0, Ay), "A_y = 0 (beam weight forgotten) fails");
+});
+
 test("sphere against a wall (1.6.2015) and in a corner: S = 141,5, walls 53,08 N", () => {
   const w = kroglaVrv.build({ corner: false, r: 10, l: 30, G: 98.1, m: 10 });
   // sin φ = 10/40: S = G/cos φ, N = G tan φ
@@ -50,6 +60,15 @@ test("sphere against a wall (1.6.2015) and in a corner: S = 141,5, walls 53,08 N
   near(answer(c, "S"), 141.5);
   near(answer(c, "N"), 53.08);
   near(solveKroglaVrv({ corner: true, r: 6, l: 10, G: 120 }).H, 75.06);
+});
+
+test("sphere on a cord: drawn masses are physical (no denser than lead)", () => {
+  const r = rng(5);
+  for (let i = 0; i < 2000; i++) {
+    const p = kroglaVrv.generate(r);
+    const V = (4 / 3) * Math.PI * (p.r / 100) ** 3; // m³
+    assert.ok(p.G / 9.81 / V <= 11300, JSON.stringify(p));
+  }
 });
 
 test("bar on a rope (12.6.2006): F = 6,974 kN", () => {
@@ -121,6 +140,7 @@ test("random draws satisfy equilibrium", () => {
       // the two half-cylinders touch: centre distance r1 + r2
       near(Math.hypot(p.e, R.H), p.r1 + p.r2, 1e-9);
       assert.ok(R.H - p.r1 > 0, "hanging body clears the ground");
+      assert.ok(R.H - p.r2 > 0, "lower body stays below the beam");
       assert.ok(R.Ay >= -1e-9);
     }
     {
@@ -175,5 +195,40 @@ test("texts and figures mention every given value", () => {
       for (const a of t.answers) assert.ok(Number.isFinite(a.value), `${ex.id} ${a.key}`);
       assert.ok(t.text.join(" ").length > 80, ex.id);
     }
+  }
+});
+
+test("texts: load span of 1 m and the sphere's mass read as Slovenian", () => {
+  const a = palicaVrv.build({ L: 4, q: 2, q0: 0, q1: 1, P: 3, xP: 2, alpha: 35 }).text[0];
+  assert.ok(a.includes("na prvem metru od A") && a.includes("na razdalji 2 m od A"), a);
+  const b = palicaVrv.build({ L: 4, q: 2, q0: 3, q1: 4, P: 0, xP: 0, alpha: 35 }).text[0];
+  assert.ok(b.includes("na zadnjem metru (ob koncu B)"), b);
+  const c = kroglaVrv.build({ corner: false, r: 10, l: 30, G: 98.1, m: 10 }).text[0];
+  assert.ok(c.includes("s polmerom r = 10 cm in maso m = 10 kg"), c);
+  // "Trenja ni": the half-cylinder must be said to be fixed, or it would slide away.
+  const d = palicaPolvalj.build({ L: 2, m: 20, r: 0.8, d: 1.8, g: 9.81, gap: true, askF: false }).text[0];
+  assert.ok(d.includes("na tla pritrjen polvalj"), d);
+});
+
+test("figures: walls at x = 0 are hatched behind the wall, away from the bodies", () => {
+  // draw.js ground(a, b) hatches on the right of a→b: a wall with the bodies
+  // on its right (x > 0) must be drawn downwards, so the hatch is on the left.
+  const walls = (build) => {
+    const out = [];
+    const fig = new Proxy({}, { get: (_, k) => (...args) => { if (k === "ground" && args[0][0] === 0 && args[1][0] === 0) out.push(args); } });
+    build.figure(fig);
+    return out;
+  };
+  const cases = [
+    palicaVrv.build({ L: 4, q: 2, q0: 0, q1: 4, P: 0, xP: 0, alpha: 35 }),
+    dvePalici.build({ L1: 4, alpha: 45, below: true, rope: "p", Q: 14 }),
+    dvePalici.build({ L1: 4, alpha: 30, below: false, rope: "h", Q: 14 }),
+    kroglaVrv.build({ corner: false, r: 10, l: 30, G: 98.1, m: 10 }),
+    nosilecValj.build({ L: 4, a: 4, m: 280, mn: 0, r1: 1.2, r2: 1.2, e: 1.2, side: -1, g: 9.81 }),
+  ];
+  for (const ex of cases) {
+    const w = walls(ex);
+    assert.equal(w.length, 1, ex.title);
+    assert.ok(w[0][0][1] > w[0][1][1], `${ex.title}: wall drawn upwards, hatch towards the body`);
   }
 });

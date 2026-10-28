@@ -118,7 +118,7 @@ export function widthAt(sec, y) {
 export function principal(Ix, Iy, Ixy) {
   const avg = (Ix + Iy) / 2;
   const R = Math.hypot((Ix - Iy) / 2, Ixy);
-  let a = Math.abs(Ix - Iy) < 1e-12 ? (Ixy === 0 ? 0 : Math.sign(Ixy) * Math.PI / 4) : 0.5 * Math.atan(2 * Ixy / (Ix - Iy));
+  let a = Math.abs(Ix - Iy) < 1e-12 ? (Ixy === 0 ? 0 : Math.PI / 4) : 0.5 * Math.atan(2 * Ixy / (Ix - Iy));
   const Iu = (a) => avg + ((Ix - Iy) / 2) * Math.cos(2 * a) + Ixy * Math.sin(2 * a);
   const alpha = (a * 180) / Math.PI;
   const alphaIsMax = Iu(a) >= avg;
@@ -214,7 +214,7 @@ export const SHAPES = {
     const W = Math.max(bt, bb), H = tb + hw + tt;
     const xb = (W - bb) / 2, xt = (W - bt) / 2, xw = (W - tw) / 2;
     return {
-      name: "I prerez",
+      name: "I-prerez",
       parts: [R(xb, 0, bb, tb), R(xw, tb, tw, hw), R(xt, tb + hw, bt, tt)],
       outline: [poly([xb, 0], [xb + bb, 0], [xb + bb, tb], [xw + tw, tb], [xw + tw, tb + hw], [xt + bt, tb + hw], [xt + bt, H], [xt, H], [xt, tb + hw], [xw, tb + hw], [xw, tb], [xb, tb])],
       dims: [
@@ -237,7 +237,7 @@ export const SHAPES = {
     const I = SHAPES.I(a, y, a - 2 * n, hn);
     return {
       ...I,
-      name: "I prerez (pravokotnik z izrezoma)",
+      name: "I-prerez (pravokotnik z izrezoma)",
       parts: [R(0, 0, a, H), R(0, y, n, hn, true), R(a - n, y, n, hn, true)],
       dims: [[[0, H], [a, H], `${a}`, -20], [[0, y], [n, y], `${n}`, 14], [[a - n, y], [a, y], `${n}`, 14], [[a, 0], [a, y], `${num0(y)}`, 22], [[a, y], [a, y + hn], `${hn}`, 22], [[a, y + hn], [a, H], `${num0(y)}`, 22]],
     };
@@ -248,14 +248,14 @@ export const SHAPES = {
     const xw = (bf - tw) / 2, H = tf + hw;
     if (!flip) {
       return {
-        name: "T prerez",
+        name: "T-prerez",
         parts: [R(xw, 0, tw, hw), R(0, hw, bf, tf)],
         outline: [poly([xw, 0], [xw + tw, 0], [xw + tw, hw], [bf, hw], [bf, H], [0, H], [0, hw], [xw, hw])],
         dims: [[[0, H], [bf, H], `${bf}`, -20], [[xw, 0], [xw + tw, 0], `${tw}`, 22], [[bf, 0], [bf, hw], `${hw}`, 22], [[bf, hw], [bf, H], `${tf}`, 22]],
       };
     }
     return {
-      name: "obrnjen T prerez",
+      name: "obrnjen T-prerez",
       parts: [R(0, 0, bf, tf), R(xw, tf, tw, hw)],
       outline: [poly([0, 0], [bf, 0], [bf, tf], [xw + tw, tf], [xw + tw, H], [xw, H], [xw, tf], [0, tf])],
       dims: [[[0, 0], [bf, 0], `${bf}`, 22], [[xw, H], [xw + tw, H], `${tw}`, -20], [[bf, 0], [bf, tf], `${tf}`, 22], [[bf, tf], [bf, H], `${hw}`, 22]],
@@ -266,7 +266,7 @@ export const SHAPES = {
   U(b, tb, tw, hw) {
     const H = tb + hw;
     return {
-      name: "U prerez",
+      name: "U-prerez",
       parts: [R(0, 0, b, tb), R(0, tb, tw, hw), R(b - tw, tb, tw, hw)],
       outline: [poly([0, 0], [b, 0], [b, H], [b - tw, H], [b - tw, tb], [tw, tb], [tw, H], [0, H])],
       dims: [[[0, 0], [b, 0], `${b}`, 22], [[0, H], [tw, H], `${tw}`, -16], [[b - tw, H], [b, H], `${tw}`, -16], [[b, 0], [b, tb], `${tb}`, 22], [[b, tb], [b, H], `${hw}`, 22]],
@@ -276,7 +276,7 @@ export const SHAPES = {
   /** C (channel) open to the right: web tw × H, flanges bf × tf top and bottom. */
   C(H, tw, bf, tf) {
     return {
-      name: "C prerez",
+      name: "C-prerez",
       parts: [R(0, 0, tw, H), R(tw, 0, bf - tw, tf), R(tw, H - tf, bf - tw, tf)],
       outline: [poly([0, 0], [bf, 0], [bf, tf], [tw, tf], [tw, H - tf], [bf, H - tf], [bf, H], [0, H])],
       dims: [[[0, H], [bf, H], `${bf}`, -20], [[0, 0], [tw, 0], `${tw}`, 22], [[0, 0], [0, H], `${H}`, -22], [[bf, 0], [bf, tf], `${tf}`, 22], [[bf, H - tf], [bf, H], `${tf}`, 22]],
@@ -286,7 +286,7 @@ export const SHAPES = {
   /** L angle: vertical leg of height a, horizontal leg of length b, thickness t. */
   L(a, b, t) {
     return {
-      name: "L prerez (kotnik)",
+      name: "L-prerez (kotnik)",
       parts: [R(0, 0, t, a), R(t, 0, b - t, t)],
       outline: [poly([0, 0], [b, 0], [b, t], [t, t], [t, a], [0, a])],
       dims: [[[0, 0], [b, 0], `${b}`, 22], [[0, 0], [0, a], `${a}`, -22], [[0, a], [t, a], `${t}`, -16], [[b, 0], [b, t], `${t}`, 22]],
@@ -298,7 +298,7 @@ export const SHAPES = {
     // web at x = b1 − t … b1; bottom flange 0 … b1, top flange b1 − t … b1 − t + b2
     const xw = b1 - t;
     return {
-      name: "Z prerez",
+      name: "Z-prerez",
       parts: [R(0, 0, b1, t), R(xw, t, t, H - 2 * t), R(xw, H - t, b2, t)],
       outline: [poly([0, 0], [b1, 0], [b1, H - t], [xw + b2, H - t], [xw + b2, H], [xw, H], [xw, t], [0, t])],
       dims: [
@@ -316,7 +316,7 @@ export const SHAPES = {
   Hrot(tf, hf, lw, tw) {
     const W = 2 * tf + lw, yw = (hf - tw) / 2;
     return {
-      name: "H prerez",
+      name: "H-prerez",
       parts: [R(0, 0, tf, hf), R(tf, yw, lw, tw), R(tf + lw, 0, tf, hf)],
       outline: [poly([0, 0], [tf, 0], [tf, yw], [tf + lw, yw], [tf + lw, 0], [W, 0], [W, hf], [tf + lw, hf], [tf + lw, yw + tw], [tf, yw + tw], [tf, hf], [0, hf])],
       dims: [[[0, 0], [tf, 0], `${tf}`, 22], [[tf, 0], [tf + lw, 0], `${lw}`, 22], [[tf + lw, 0], [W, 0], `${tf}`, 22], [[0, 0], [0, hf], `${hf}`, -22], [[W, yw], [W, yw + tw], `${tw}`, 22]],
@@ -385,7 +385,14 @@ export function bbox(sec) {
     let a, b, c, d;
     if (p.t === "rect") [a, b, c, d] = [p.x, p.x + p.w, p.y, p.y + p.h];
     else if (p.t === "tri") [a, b, c, d] = [Math.min(p.x, p.x + p.b), Math.max(p.x, p.x + p.b), Math.min(p.y, p.y + p.h), Math.max(p.y, p.y + p.h)];
-    else [a, b, c, d] = [p.cx - p.r, p.cx + p.r, p.cy - p.r, p.cy + p.r];
+    else if (p.t === "circle") [a, b, c, d] = [p.cx - p.r, p.cx + p.r, p.cy - p.r, p.cy + p.r];
+    else {
+      // Half / quarter disc: only the side it bulges to.
+      const [ux, uy] = p.t === "semi" ? [Math.round(Math.cos(rad(p.dir))), Math.round(Math.sin(rad(p.dir)))] : [p.sx, p.sy];
+      const span = (u, c0) => (u > 0 ? [c0, c0 + p.r] : u < 0 ? [c0 - p.r, c0] : [c0 - p.r, c0 + p.r]);
+      [a, b] = span(ux, p.cx);
+      [c, d] = span(uy, p.cy);
+    }
     x0 = Math.min(x0, a); x1 = Math.max(x1, b); y0 = Math.min(y0, c); y1 = Math.max(y1, d);
   }
   return { x0, x1, y0, y1 };
@@ -439,7 +446,14 @@ export function drawSection(f, sec, { at = [0, 0], scale = 1, dims = true, dimTe
     const ext = 0.18 * Math.max(box.x1 - box.x0, box.y1 - box.y0);
     f.dashed(P([box.x0 - ext, T[1]]), P([box.x1 + ext, T[1]]));
     f.dashed(P([T[0], box.y0 - ext]), P([T[0], box.y1 + ext]));
-    f.point(P(T), "T", { dx: 6, dy: -6 });
+    // Clear of the axes through T (the principal ones too): one of the
+    // quadrants, or (lines in all four) between two of the lines further out.
+    const ring = [14, 22].flatMap((r) => [30, 60, 120, 150, 210, 240, 300, 330].map((d) => {
+      const c = Math.cos((d * Math.PI) / 180), sn = Math.sin((d * Math.PI) / 180);
+      return [r * c, -r * sn + 5, c > 0.3 ? "start" : c < -0.3 ? "end" : "middle"];
+    }));
+    f.point(P(T), "T", { dx: 6, dy: -6, alts: [[-6, -6, "end"], [6, 16, "start"], [-6, 16, "end"], ...ring] });
+
   }
   if (principalAxes && props) {
     const T = P([props.xT, props.yT]);

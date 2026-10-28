@@ -126,9 +126,8 @@ function makeLoads(rng, level, L, grid, supportXs) {
   // Point loads and couples never sit right on a support (there they'd go
   // straight into the reaction and teach nothing) or on a hinge (a couple
   // there is ambiguous: which side gets it?).
-  const free = range(grid, L, grid).filter((x) => !supportXs.some((s) => Math.abs(s - x) < 1e-9));
-  const freeAll = range(0, L, grid).filter((x) => !supportXs.some((s) => Math.abs(s - x) < 1e-9));
-  const pts = free.length ? free : freeAll;
+  // (Both ends count: a cantilever fixed on the right has its free tip at 0.)
+  const pts = range(0, L, grid).filter((x) => !supportXs.some((s) => Math.abs(s - x) < 1e-9));
   const loads = [];
   if (level === "easy") {
     const n = rng() < 0.5 ? 1 : 2;
@@ -178,6 +177,10 @@ export function generateProblem(typeId, levelId, rng = Math.random) {
       })),
       kind: type,
     };
+    // Distributed loads drawn over each other hide each other (two equal
+    // ones look like one): their spans may touch, not overlap.
+    const dists = model.loads.filter((l) => l.type === "dist");
+    if (dists.some((a, i) => dists.slice(i + 1).some((b) => Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 1e-9))) continue;
     const sol = solve(model);
     if (!sol.ok) continue;
     // Something must actually bend.

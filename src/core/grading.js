@@ -13,5 +13,30 @@ export const tolerance = (answer, scale, floor = 0.05) => Math.max(REL_TOL * Mat
 export const closeEnough = (given, answer, scale, minTol = 0, floor = 0.05) =>
   Math.abs(given - answer) <= Math.max(tolerance(answer, scale, floor), minTol) + 1e-9;
 
+/** Practice's reactions ([{ answer, unit }], typed values `given`): a small
+ *  one is judged against the largest reaction in its own unit, so a fixed
+ *  end's 300 kNm doesn't let a 6 kN force pass with either sign. */
+export function reactionsOk(given, reactions) {
+  // 3 % of a third = 1 % of the largest reaction in the same unit: enough
+  // for a reaction that comes out about 0, too little to pass a wrong sign
+  // (3 % of the largest let −0,9 pass for By = 2 next to Ay = 98).
+  const scale = (unit) => Math.max(...reactions.filter((r) => r.unit === unit).map((r) => Math.abs(r.answer))) / 3;
+  return reactions.map((r, i) => closeEnough(given[i], r.answer, scale(r.unit)));
+}
+
 /** Right but not to the printed two decimals: worth showing the exact value. */
 export const isExact = (given, answer) => Math.abs(given - answer) < 0.005 + 1e-9;
+
+/** An exam exercise's answer `a` ({ value, unit, scale?, tol?, period? }):
+ *  with `tol`, an absolute error (angles: modulo `period`, default 360°);
+ *  otherwise 5 % of its own value, or 3 % of `scale` when the module gives
+ *  one (answers that can be about 0). No other floor. */
+export function answerOk(given, a) {
+  if (a.tol === undefined) return closeEnough(given, a.value, a.scale ?? 0, 0, 1e-6);
+  let d = given - a.value;
+  if (a.unit === "°") {
+    const p = a.period ?? 360;
+    d = ((((d + p / 2) % p) + p) % p) - p / 2;
+  }
+  return Math.abs(d) <= a.tol + 1e-9;
+}

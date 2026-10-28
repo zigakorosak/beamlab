@@ -4,7 +4,7 @@
 //   sile-vozlisce  a weight hangs from a knot held by two ropes/bars in
 //                  known directions; find both forces (23.6.2015, 1.6.2006).
 
-import { ans, angleAns, deg, num, q, rad, round } from "../kit.js";
+import { ans, angleAns, deg, num, q, rad } from "../kit.js";
 
 const comp = (F, a) => [F * Math.cos(rad(a)), F * Math.sin(rad(a))];
 const norm360 = (a) => ((a % 360) + 360) % 360;
@@ -24,7 +24,9 @@ export const sileF4 = {
       }
       const forces = angles.map((a) => ({ F: r.step(2, 12, 1), a }));
       const R = forces.reduce((acc, f) => acc.map((v, i) => v + comp(f.F, f.a)[i]), [0, 0]);
-      if (Math.hypot(...R) > 2) return { forces };
+      // φ not next to 0°/360°, where an answer of 359,8 vs 0,2 would be graded wrong.
+      const phi = norm360(deg(Math.atan2(-R[1], -R[0])));
+      if (Math.hypot(...R) > 2 && phi > 2 && phi < 358) return { forces };
     }
   },
 
@@ -51,10 +53,18 @@ export const sileF4 = {
         const Fmax = Math.max(...forces.map((x) => x.F));
         f.bounds([[-1.15, -1.15], [1.15, 1.15]]);
         f.dashed([-1.1, 0], [1.1, 0]);
-        f.label([1.12, 0], "x", { dx: 4, dy: 18, anchor: "start" });
+        // Below the axis' end, or (when a force's label is there, e.g. one at 345°) above or past it.
+        f.label([1.12, 0], "x", { dx: 4, dy: 18, anchor: "start", alts: [[4, -8, "start"], [8, 4, "start"]] });
         f.angle([0, 0], 0, 360, "", 14);
         forces.forEach((force, i) => {
-          f.force([0, 0], force.a, { tail: true, world: 0.35 + (0.65 * force.F) / Fmax, label: `${names[i]} = ${q(force.F, "kN")}, ${force.a}°`, labelAt: "end" });
+          const len = 0.35 + (0.65 * force.F) / Fmax;
+          const label = `${names[i]} = ${q(force.F, "kN")}, ${force.a}°`;
+          // Along the x axis a label past the tip would lie on the dashed axis: lift it above.
+          const c = Math.cos((force.a * Math.PI) / 180);
+          if (Math.abs(Math.sin((force.a * Math.PI) / 180)) < 0.2) {
+            f.force([0, 0], force.a, { tail: true, world: len });
+            f.label([len * c, len * Math.sin((force.a * Math.PI) / 180)], label, { dx: c > 0 ? 4 : -4, dy: -9, anchor: c > 0 ? "start" : "end", cls: "fig-force-label" });
+          } else f.force([0, 0], force.a, { tail: true, world: len, label, labelAt: "auto" }); // past the tip, unless another label is there
         });
         f.hinge([0, 0]);
       },
@@ -103,7 +113,7 @@ export const sileVozlisce = {
     return {
       title: this.title,
       text: [
-        `Breme s težo G = ${q(G, "kN")} visi v vozlišču, ki ga držita vrvi 1 in 2. Vrv 1 oklepa z vodoravnico kot ${round(180 - a1, 3)}°, vrv 2 pa ${round(a2, 3)}°.`,
+        `Breme s težo G = ${q(G, "kN")} visi v vozlišču, ki ga držita vrvi 1 in 2. Vrv 1 oklepa z vodoravnico kot ${num(180 - a1)}°, vrv 2 pa ${num(a2)}°.`,
         "Izračunajte sili v obeh vrveh.",
       ],
       figure(f) {
@@ -111,15 +121,23 @@ export const sileVozlisce = {
         f.line([0, 0], A, "fig-rope");
         f.line([0, 0], B, "fig-rope");
         f.hinge([0, 0]);
-        f.label([(A[0]) / 2, A[1] / 2], "1", { dx: -10 });
-        f.label([B[0] / 2, B[1] / 2], "2", { dx: 10 });
+        // Rope names beside the middle of each rope, below it (outside the V).
+        const ropeName = (P, name) => {
+          const L = Math.hypot(P[0], P[1]) || 1;
+          let nx = P[1] / L, ny = -P[0] / L;
+          if (ny > 0) { nx = -nx; ny = -ny; }
+          f.label([P[0] / 2, P[1] / 2], name, { dx: nx * 12, dy: -ny * 12 + 4 });
+        };
+        ropeName(A, "1");
+        ropeName(B, "2");
         f.force([0, 0], -90, { tail: true, len: 50, label: `G = ${q(G, "kN")}` });
-        f.angle(A, a1 + 180, 360, `${round(180 - a1, 3)}°`, 26);
-        f.angle(B, 180, 180 + a2, `${round(a2, 3)}°`, 26);
+        f.angle(A, a1 + 180, 360, `${num(180 - a1)}°`, 26);
+        f.angle(B, 180, 180 + a2, `${num(a2)}°`, 26);
       },
       answers: [ans("S1", "S_1", "kN", S1), ans("S2", "S_2", "kN", S2)],
       solution: [
         "Prerežemo obe vrvi in zapišemo ravnotežje vozlišča (natezni sili S_1, S_2 kažeta od vozlišča proti pritrdišču):",
+        `Smeri vrvi merimo od osi +x (v nasprotni smeri urinega kazalca): vrv 1 pod 180° − ${num(180 - a1)}° = ${num(a1)}°, vrv 2 pod ${num(a2)}°.`,
         `ΣF_x = 0: S_1·cos ${a1}° + S_2·cos ${a2}° = 0`,
         `ΣF_y = 0: S_1·sin ${a1}° + S_2·sin ${a2}° − G = 0`,
         `Rešitev sistema: S_1 = ${num(S1)} kN, S_2 = ${num(S2)} kN.`,

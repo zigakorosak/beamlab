@@ -548,6 +548,19 @@ line.hit {
   font-weight: 600;
 }
 
+/* An inclined force's angle from the vertical */
+.load-angle line,
+.load-angle polyline {
+  stroke: var(--load);
+  stroke-width: 1;
+  fill: none;
+}
+
+.load-angle-label {
+  fill: var(--load) !important;
+  font-size: 11px !important;
+}
+
 .resultant line {
   stroke: var(--load);
   stroke-width: 1.6;

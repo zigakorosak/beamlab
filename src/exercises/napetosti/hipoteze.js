@@ -7,7 +7,7 @@
 //                 σ_ekv by both, check against σ_dop
 //   dopustni-tau  σ known, σ_dop → the largest τ by each hypothesis
 
-import { ans, num } from "../kit.js";
+import { ans, nearZero, num } from "../kit.js";
 import { par, planeStress, stressElement } from "./element.js";
 
 export const hipoteze = {
@@ -58,7 +58,7 @@ function sigmaTau({ sigma, tau, spl }) {
       "Izračunajte ekvivalentno napetost po Trescovi hipotezi (največje strižne napetosti) in po von Misesovi hipotezi (energija spremembe oblike) ter pripadajoča koeficienta varnosti ν = σ_{pl}/σ_{ekv}.",
     ],
     figure(f) {
-      stressElement(f, { sx: sigma, txy: tau, labels: { sx: `σ = ${num(Math.abs(sigma))}`, txy: `τ = ${num(Math.abs(tau))}` } });
+      stressElement(f, { sx: sigma, txy: tau, labels: { sx: `σ = ${num(sigma)}`, txy: `τ = ${num(tau)}` } });
     },
     answers: [
       ans("T", "σ_{ekv,Tresca}", "MPa", T),
@@ -71,7 +71,7 @@ function sigmaTau({ sigma, tau, spl }) {
       `Tresca: σ_{ekv} = σ_1 − σ_2 = √(σ² + 4τ²) = √(${par(sigma)}² + 4·${par(tau)}²) = ${num(T)} MPa`,
       `von Mises: σ_{ekv} = √(σ² + 3τ²) = √(${par(sigma)}² + 3·${par(tau)}²) = ${num(M)} MPa`,
       `ν_{Tresca} = σ_{pl}/σ_{ekv} = ${spl}/${num(T)} = ${num(spl / T)}, ν_{Mises} = ${spl}/${num(M)} = ${num(spl / M)}`,
-      `${spl / T < 1 ? "Po Trescu je ν < 1: material bi se plastificiral. " : ""}Trescova hipoteza je strožja (večja σ_{ekv}, manjši ν).`,
+      `${spl / M < 1 ? "Po obeh hipotezah je ν < 1: material bi se plastificiral. " : spl / T < 1 ? "Po Trescu je ν < 1 (po von Misesu ne): material bi se plastificiral. " : ""}Trescova hipoteza je strožja (večja σ_{ekv}, manjši ν).`,
     ],
   };
 }
@@ -92,19 +92,22 @@ function plane({ sx, sy, txy, sdop }) {
     figure(f) {
       stressElement(f, { sx, sy, txy, labels: { sx: num(Math.abs(sx)), sy: num(Math.abs(sy)), txy: num(Math.abs(txy)) } });
     },
-    answers: [
-      ans("s1", "σ_1", "MPa", st.s1),
-      ans("s2", "σ_2", "MPa", st.s2),
-      ans("T", "σ_{ekv,Tresca}", "MPa", T),
-      ans("M", "σ_{ekv,Mises}", "MPa", M),
-    ],
+    answers: nearZero(
+      [
+        ans("s1", "σ_1", "MPa", st.s1),
+        ans("s2", "σ_2", "MPa", st.s2),
+        ans("T", "σ_{ekv,Tresca}", "MPa", T),
+        ans("M", "σ_{ekv,Mises}", "MPa", M),
+      ],
+      ["s1", "s2"],
+    ),
     solution: [
       `σ_x = ${num(sx)}, σ_y = ${num(sy)}, τ_{xy} = ${num(txy)} MPa.`,
       `σ_{1,2} = (σ_x + σ_y)/2 ± √(((σ_x − σ_y)/2)² + τ_{xy}²) = ${num(st.C)} ± ${num(st.R)} → σ_1 = ${num(st.s1)} MPa, σ_2 = ${num(st.s2)} MPa.`,
       `Tretja glavna napetost je 0. Urejeno: ${pr.map((v) => num(v)).join(" ≥ ")} MPa.`,
       sameSign
-        ? `Tresca: σ_{ekv} = σ_{max} − σ_{min} = ${num(pr[0])} − (${num(pr[2])}) = ${num(T)} MPa. Pozor: σ_1 in σ_2 imata enak predznak, zato σ_{ekv} ni σ_1 − σ_2 (in ne √((σ_x − σ_y)² + 4τ_{xy}²)), ampak največja glavna napetost minus 0.`
-        : `Tresca: σ_{ekv} = σ_1 − σ_2 = √((σ_x − σ_y)² + 4τ_{xy}²) = ${num(T)} MPa (σ_1 > 0 > σ_2).`,
+        ? `Tresca: σ_{ekv} = σ_{max} − σ_{min} = ${num(pr[0])} − ${par(pr[2])} = ${num(T)} MPa. Pozor: σ_1 in σ_2 imata enak predznak, zato σ_{ekv} ni σ_1 − σ_2 (in ne √((σ_x − σ_y)² + 4τ_{xy}²)), ampak razlika med ${st.s1 < 0 ? "0 in σ_2 (obe glavni napetosti sta tlačni)" : "σ_1 in 0 (obe glavni napetosti sta natezni)"}.`
+        : `Tresca: σ_{ekv} = σ_1 − σ_2 = √((σ_x − σ_y)² + 4τ_{xy}²) = ${num(T)} MPa (σ_1 ≥ 0 ≥ σ_2).`,
       `von Mises: σ_{ekv} = √(σ_1² − σ_1σ_2 + σ_2²) = ${num(M)} MPa (= √(σ_x² − σ_xσ_y + σ_y² + 3τ_{xy}²)).`,
       `${MSG} Tresca: ${num(T)} ${ok(T)}; von Mises: ${num(M)} ${ok(M)}.`,
     ],

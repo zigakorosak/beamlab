@@ -37,7 +37,8 @@ function randomBendSection(r) {
       return { shape, a: [b, b + i(4, 20)] };
     }
     case "hollowRect": {
-      const t = i(2, 5), B = i(10, 20), H = B + i(0, 12);
+      // An opening at least 4 cm wide (B = 10, t = 5 left none).
+      const B = i(10, 20), t = i(2, Math.min(5, Math.floor((B - 4) / 2))), H = B + i(0, 12);
       return { shape, a: [B, H, B - 2 * t, H - 2 * t] };
     }
     case "I": {
@@ -63,7 +64,7 @@ function randomBendSection(r) {
       return { shape, a: [2 * i(5, 15)] };
     case "tube": {
       const D = 2 * i(5, 15);
-      return { shape, a: [D, i(1, Math.min(3, D / 4))] };
+      return { shape, a: [D, i(1, Math.min(3, Math.floor(D / 4)))] };
     }
   }
 }
@@ -74,11 +75,23 @@ function drawBeamAndSection(f, beam, sec, dimText) {
   const box = bbox(sec);
   const w = box.x1 - box.x0, h = box.y1 - box.y0;
   const L = beam.L;
-  const scale = Math.min((0.42 * L) / h, (0.3 * L) / w);
-  const x0 = L + 0.5 * L;
-  const at = [x0 - box.x0 * scale, -box.y0 * scale - (h * scale) / 2];
-  drawSection(f, sec, { at, scale, dimText });
+  f.byWidth(
+    500,
+    // A phone: the section under the beam, bigger (beside it, its dimensions ran into each other).
+    (g) => {
+      const scale = Math.min((0.36 * L) / h, (0.8 * L) / w);
+      // (Far enough down that its top dimension clears the beam's dimension chain, two rows of it.)
+      drawSection(g, sec, { at: [L / 2 - (box.x0 + w / 2) * scale, -0.7 * L - box.y1 * scale], scale, dimText });
+
+    },
+    (g) => {
+      const scale = Math.min((0.42 * L) / h, (0.3 * L) / w);
+      const x0 = L + 0.5 * L;
+      drawSection(g, sec, { at: [x0 - box.x0 * scale, -box.y0 * scale - (h * scale) / 2], scale, dimText });
+    },
+  );
 }
+
 
 /** The section part of the solution, for a section symmetric about the vertical axis. */
 function bendSectionLines(sec, P) {
@@ -136,7 +149,7 @@ export const upogibNapetost = {
         const tO = Math.max(so.top, so.bot), cO = Math.min(so.top, so.bot);
         if (tO > tMax + 1e-9 || cO < cMin - 1e-9)
           solution.push(
-            `Opomba: prerez ni simetričen glede na vodoravno os. Pri x = ${num(other.x)} m je M = ${num(other.value)} kNm (nasproten predznak): tam je σ_{zg} = ${num(10 * so.top)} MPa, σ_{sp} = ${num(10 * so.bot)} MPa — ${tO > tMax + 1e-9 ? "večja natezna" : "večja tlačna"} napetost kot pri M_{max}. Pri dimenzioniranju je treba preveriti oba ekstrema M.`,
+            `Opomba: prerez ni simetričen glede na vodoravno os. Pri x = ${num(other.x)} m je M = ${num(other.value)} kNm (nasproten predznak): tam je σ_{zg} = ${num(10 * so.top)} MPa, σ_{sp} = ${num(10 * so.bot)} MPa — ${tO > tMax + 1e-9 && cO < cMin - 1e-9 ? "večja natezna in večja tlačna" : tO > tMax + 1e-9 ? "večja natezna" : "večja tlačna"} napetost kot pri M_{max}. Pri dimenzioniranju je treba preveriti oba ekstrema M.`,
           );
       }
     }
@@ -144,7 +157,7 @@ export const upogibNapetost = {
     return {
       title: this.title,
       text: [
-        `${beamText(beam)} Prerez nosilca je na sliki desno (mere v cm).`,
+        `${beamText(beam)} Prečni prerez nosilca je na sliki (mere v cm).`,
         `Izračunajte največji upogibni moment M_{max} (največji |M|, s predznakom; M > 0 pomeni nateg spodaj) in mesto x, kjer nastopi (od levega konca), vztrajnostni moment I prereza glede na vodoravno težiščno os, ${sym ? "odpornostni moment W" : "lego težišča y_T (od spodnjega roba prereza)"} ter normalni napetosti v zgornjem in spodnjem robu prereza na mestu M_{max} (v MPa, nateg +, tlak −).`,
       ],
       figure(f) {
@@ -161,7 +174,12 @@ export const upogibNapetost = {
       solution,
       solutionFigure(f) {
         drawBeam(f, beam, { dims: false });
-        drawMoment(f, beam, an, { y0: -0.3 * beam.L, height: 0.16 * beam.L });
+        // A phone has the height to spare: the diagram further down and taller.
+        f.byWidth(
+          500,
+          (g) => drawMoment(g, beam, an, { y0: -0.65 * beam.L, height: 0.3 * beam.L }),
+          (g) => drawMoment(g, beam, an, { y0: -0.3 * beam.L, height: 0.16 * beam.L }),
+        );
       },
     };
   },
@@ -316,14 +334,14 @@ export const upogibDimenzioniranje = {
       const m = Math.abs(an.crit.value); // |M|max per 1 kN of F
       const F = Mdop / m; // kN
       const inN = F < 5;
-      const what = mm ? `jeklena cev D = ${params.a[0]} mm, t = ${params.a[1]} mm` : `prerez na sliki (mere v cm)`;
+      const what = mm ? `Nosilec je jeklena cev D = ${params.a[0]} mm, t = ${params.a[1]} mm` : "Prečni prerez nosilca je na sliki (mere v cm)";
       text = [
-        `${beamText(beam)} Prerez: ${what}; dopustna napetost σ_{dop} = ${q(sdop, "N/mm²")}.`,
+        `${beamText(beam)} ${what}; dopustna napetost σ_{dop} = ${q(sdop, "N/mm²")}.`,
         "Določite odpornostni moment prereza W, največji dopustni upogibni moment M_{dop} in največjo silo F, ki jo nosilec še prenese.",
       ];
       answers = [ans("W", "W", "cm³", W), ans("Mdop", "M_{dop}", "kNm", Mdop), ans("F", "F_{max}", inN ? "N" : "kN", inN ? F * 1000 : F)];
       solution.push(
-        `Moment je sorazmeren s F; z F = 1 kN dobimo reakcije ${an.sol.reactions.map((x) => `${x.name}_y = ${num(x.Ry)}·F`).join(", ")} in največji |M| = ${num(m)}·F [kNm] pri x = ${num(an.crit.x)} m.`,
+        `Moment je sorazmeren s F; z F = 1 kN dobimo reakcije ${an.sol.reactions.map((x) => `${x.name}_y = ${num(x.Ry)}·F${x.type === "fixed" ? `, M_${x.name} = ${num(x.M)}·F [kNm] (pozitiven v nasprotni smeri urinega kazalca)` : ""}`).join(", ")} in največji |M| = ${num(m)}·F [kNm] pri x = ${num(an.crit.x)} m.`,
       );
       if (mm) solution.push(`I = π(D⁴ − d⁴)/64 = π(${params.a[0]}⁴ − ${params.a[0] - 2 * params.a[1]}⁴)/64 = ${num(P.Ix * 1e4)} mm⁴ = ${num(P.Ix)} cm⁴`, `W = I/(D/2) = ${num(W)} cm³ = ${num(W * 1000)} mm³`);
       else solution.push(...bendSectionLines(secCm, P), `W = I/e_{max} = ${num(P.Ix)}/${num(Math.max(P.eTop, P.eBot))} = ${num(W)} cm³`);
@@ -344,7 +362,14 @@ export const upogibDimenzioniranje = {
       solutionFigure(f) {
         drawBeam(f, beam, { dims: false });
         const perF = variant === "Fmax";
-        drawMoment(f, beam, an, { y0: -0.3 * beam.L, height: 0.16 * beam.L, ...(perF ? { fmt: (v) => `${num(v)}·F`, title: "M [kNm], F v kN" } : {}) });
+        const opts = perF ? { fmt: (v) => `${num(v)}·F`, title: "M [kNm], F v kN" } : {};
+        // A phone has the height to spare: the diagram further down and taller.
+        f.byWidth(
+          500,
+          (g) => drawMoment(g, beam, an, { y0: -0.65 * beam.L, height: 0.3 * beam.L, ...opts }),
+          (g) => drawMoment(g, beam, an, { y0: -0.3 * beam.L, height: 0.16 * beam.L, ...opts }),
+        );
+
       },
     };
   },

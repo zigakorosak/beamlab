@@ -12,7 +12,7 @@
 // column). The dashed fibre runs continuously round the corner, along the
 // bottom of the beam.
 
-import { ans, num, q } from "../kit.js";
+import { ans, num, q, nearZero } from "../kit.js";
 import { solveFrame, maxAbsM } from "./frame.js";
 import { bar, drawDiagrams } from "./drawFrame.js";
 import { DASHED_TEXT, clean, drawFrameModel, labelNodes, reactionAnswers } from "./common.js";
@@ -113,6 +113,9 @@ export const okvirL = {
       // No silly near-zero non-zero answers, something to bend.
       if (vals.some((v) => v > 1e-6 && v < 0.05)) continue;
       if (Math.abs(ex.maxM) < 1) continue;
+      // An extreme worth asking: not tiny, not the corner moment again.
+      const mext = ex.answers.find((a) => a.key === "Mext"), mc = ex.answers.find((a) => a.key === "Mc");
+      if (mext && (Math.abs(mext.value) < 0.05 * Math.abs(ex.maxM) || Math.abs(mext.value - mc.value) < 0.02 * Math.abs(ex.maxM))) continue;
       return p;
     }
   },
@@ -135,7 +138,7 @@ export const okvirL = {
     const supText = {
       pinEnd: `Okvir je v točki A (konec prečke) nepomično podprt, v točki B (vznožje stebra) pa pomično podprt z navpično reakcijo.`,
       pinBase: `Okvir je v točki A (vznožje stebra) nepomično podprt, v točki B (konec prečke) pa pomično podprt z navpično reakcijo.`,
-      rollerH: `Okvir je v točki A (konec prečke) nepomično podprt, v točki B (vznožje stebra) pa pomično podprt z vodoravno reakcijo (ob steni).`,
+      rollerH: `Okvir je v točki A (konec prečke) nepomično podprt, v točki B (vznožje stebra) pa pomično podprt z vodoravno reakcijo.`,
       strut: `Okvir je v točki B (vznožje stebra) nepomično podprt, v vogalu C pa ga drži členkasto pritrjena palica AC pod kotom ${p.beta}° glede na vodoravnico.`,
       rollerCorner: `Okvir je v vogalu A pomično podprt z navpično reakcijo, v točki B (konec prečke) pa nepomično podprt.`,
       pinCorner: `Okvir je v vogalu A nepomično podprt, v točki B (konec prečke) pa pomično podprt z navpično reakcijo.`,
@@ -144,7 +147,7 @@ export const okvirL = {
     for (const l of model.loads) {
       if (l.type === "dist") loadText.push(`zvezna obtežba ${l.label} = ${q(l.q, "kN/m")} ${l.member === model.beamId ? "po vsej prečki (navpično navzdol)" : `po vsem stebru (vodoravno v ${l.angle === 0 ? "desno" : "levo"})`}`);
       else if (l.node) loadText.push(`vodoravna sila ${l.label} = ${q(l.F, "kN")} v ${l.angle === 0 ? "desno" : "levo"} ${top ? "v vogalu C" : "na vrhu stebra (C)"}`);
-      else loadText.push(`navpična sila ${l.label} = ${q(l.F, "kN")} na prečki, ${num(p.Fvx)} m od vogala`);
+      else loadText.push(`navpična sila ${l.label} = ${q(l.F, "kN")} (navzdol) na prečki, ${num(p.Fvx)} m od vogala`);
     }
 
     const answers = [
@@ -153,6 +156,8 @@ export const okvirL = {
       ans("Nb", `N_{${model.beamId}}`, "kN", clean(Nbeam), { note: "osna sila v prečki ob vogalu" }),
       ext ? ans("Mext", "M_{ekstr}", "kNm", clean(ext.M), { note: "v prečki, kjer je T = 0" }) : ans("Nc", `N_{${model.colId}}`, "kN", clean(Ncol), { note: "osna sila v stebru ob vogalu" }),
     ];
+    // Reactions and corner forces can come out 0 (or nearly): 1 % of the largest one.
+    nearZero(answers, answers.map((a) => a.key));
 
     const names = Object.fromEntries(Object.keys(model.nodes).map((k) => [k, k]));
     const sx = p.mirror ? -1 : 1;
@@ -163,7 +168,7 @@ export const okvirL = {
       text: [
         `Okvir v obliki črke L sestavljata steber višine ${q(p.h, "m")} in prečka dolžine ${q(p.a, "m")}, togo spojena v vogalu ${C}. ${supText}`,
         `Obtežba: ${loadText.join("; ")}.`,
-        `Izračunajte reakcije (komponente v smeri osi x in y), upogibni moment v vogalu ${C}, osno silo v prečki in ${ext ? "ekstremni upogibni moment v prečki" : "osno silo v stebru"}. Narišite diagrame N, T, M.`,
+        `Izračunajte reakcije (komponente v smeri osi x in y${p.sup === "strut" ? " ter silo v palici AC" : ""}), upogibni moment v vogalu ${C}, osno silo v prečki in ${ext ? "ekstremni upogibni moment v prečki" : "osno silo v stebru"}. Narišite diagrame N, T, M.`,
         DASHED_TEXT,
       ],
       figure(f) {
@@ -175,11 +180,15 @@ export const okvirL = {
           else f.roller(P, s.angle === 90 ? 90 : sx > 0 ? 0 : 180);
         }
         const extra = {};
+        // The height's dimension line leaves the beam's far end sideways.
+        for (const [name, P] of Object.entries(model.nodes)) if (Math.abs(P[0] - sx * p.a) < 1e-9 && Math.abs(P[1] - p.h) < 1e-9) extra[name] = sx > 0 ? [0] : [180];
+        // A roller against a wall sits beside its node, not below it.
+        for (const s of model.supports) if (s.type !== "pin" && s.angle !== 90 && !s.names?.includes("S")) extra[s.node] = [...(extra[s.node] ?? []), ...(sx > 0 ? [160, 180, 200] : [-20, 0, 20])];
         if (model.anchor) {
           bar(f, model.nodes[C], model.anchor, sx > 0 ? 0 : 180);
           f.label(model.anchor, "A", { dx: sx * 14, dy: -10, cls: "fig-name" });
           f.angle(model.nodes[C], sx > 0 ? 180 - p.beta : 0, sx > 0 ? 180 : p.beta, `${p.beta}°`, 30);
-          extra[C] = [sx > 0 ? 180 - p.beta : p.beta, sx > 0 ? 180 - p.beta / 2 : p.beta / 2];
+          extra[C] = [...(extra[C] ?? []), sx > 0 ? 180 - p.beta : p.beta, sx > 0 ? 180 - p.beta / 2 : p.beta / 2];
         }
         labelNodes(f, model, { extra });
         // Dimensions: beam length along the ground, column height at the beam's far end.

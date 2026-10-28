@@ -2,8 +2,8 @@
 // A simple beam gives the largest shear force T, the section (cm) gives
 //   pravokotnik  τ_max = 1,5·T/A, τ(y) = T/(2I)·(h²/4 − y²)
 //   krog         τ_max = 4/3·T/A, τ(y) = T·(r² − y²)/(3I)
-//   I prerez     τ_max on the neutral axis, τ in the web at the flange junction
-//   T prerez     centroid first, then τ on the neutral axis and at the junction
+//   I-prerez     τ_max on the neutral axis, τ in the web at the flange junction
+//   T-prerez     centroid first, then τ on the neutral axis and at the junction
 // Units: kN, cm → kN/cm², answers in MPa (1 kN/cm² = 10 MPa).
 
 import { ans, num, q } from "../kit.js";
@@ -48,7 +48,7 @@ export function shear(sec, T, y0 = 0) {
 export function beamShear(b) {
   if (b.kind === "point") {
     const A = (b.F * (b.L - b.a)) / b.L, Bv = (b.F * b.a) / b.L;
-    return { T: Math.max(A, Bv), A, B: Bv, how: `A = F(L − a)/L = ${num(A)} kN, B = F·a/L = ${num(Bv)} kN → T_{max} = ${num(Math.max(A, Bv))} kN (ob ${A >= Bv ? "podpori A" : "podpori B"}).` };
+    return { T: Math.max(A, Bv), A, B: Bv, how: `A = F(L − a)/L = ${num(A)} kN, B = F·a/L = ${num(Bv)} kN → T_{max} = ${num(Math.max(A, Bv))} kN (ob ${A === Bv ? "obeh podporah" : A > Bv ? "podpori A" : "podpori B"}).` };
   }
   if (b.kind === "udl") {
     const T = (b.q * b.L) / 2;
@@ -61,7 +61,7 @@ export const strig = {
   id: "strig-nosilec",
   group: "trdnost",
   title: "Strižne napetosti v nosilcu",
-  desc: "τ = T S*/(I b): pravokotnik, krog, I in T prerez; τ_max in τ na dani višini",
+  desc: "τ = T S*/(I b): pravokotnik, krog, I- in T-prerez; τ_max in τ na dani višini",
 
   generate(r) {
     for (;;) {
@@ -78,7 +78,7 @@ export const strig = {
       if (sk === "rect") {
         const b = r.step(6, 20, 1);
         sec = { kind: "rect", b, h: b + r.step(4, 20, 2) };
-        y0 = r.step(1, sec.h / 2 - 1, 1);
+        y0 = r.step(1, Math.floor(sec.h / 2 - 1), 1);
       } else if (sk === "circle") {
         sec = { kind: "circle", d: r.step(8, 24, 2) };
         y0 = r.step(1, sec.d / 2 - 1, 1);
@@ -115,8 +115,8 @@ export const strig = {
         : sec.kind === "circle"
           ? `poln krog s premerom d = ${num(sec.d)} cm`
           : sec.kind === "I"
-            ? `simetričen I prerez: višina H = ${num(sec.H)} cm, pasnici ${num(sec.B)} × ${num(sec.tf)} cm, stojina debeline ${num(sec.tw)} cm`
-            : `T prerez: zgornja pasnica ${num(sec.B)} × ${num(sec.tf)} cm, stojina ${num(sec.tw)} × ${num(sec.hw)} cm (debelina × višina)`;
+            ? `simetričen I-prerez: višina H = ${num(sec.H)} cm, pasnici ${num(sec.B)} × ${num(sec.tf)} cm, stojina debeline ${num(sec.tw)} cm`
+            : `T-prerez: zgornja pasnica ${num(sec.B)} × ${num(sec.tf)} cm, stojina ${num(sec.tw)} × ${num(sec.hw)} cm (debelina × višina)`;
     const base = [beamText, `Prečni prerez nosilca je ${secText} (glej sliko).`];
     let ask, answers, sol;
     if (sec.kind === "rect" || sec.kind === "circle") {
@@ -174,14 +174,31 @@ export const strig = {
       figure(f) {
         drawBeam(f, beam);
         const big = sec.kind === "rect" ? Math.max(sec.b, sec.h) : sec.kind === "circle" ? sec.d : sec.kind === "I" ? Math.max(sec.H, sec.B) : Math.max(sec.tf + sec.hw, sec.B);
-        const k = (Math.max(beam.L, 3) * 0.32) / big;
-        const cx = beam.L + 1.4 + (k * (sec.kind === "circle" ? sec.d : sec.kind === "rect" ? sec.b : sec.B)) / 2;
-        section(f, sec, [cx, -0.15], k, { axis: sec.kind !== "T" });
-        if ((sec.kind === "rect" || sec.kind === "circle") && y0) {
-          const w = sec.kind === "rect" ? sec.b / 2 : Math.sqrt((sec.d / 2) ** 2 - y0 ** 2);
-          f.line([cx - w * k, -0.15 + y0 * k], [cx + w * k, -0.15 + y0 * k], "fig-thin");
-          f.label([cx - w * k, -0.15 + y0 * k], `y = ${num(y0)} cm`, { dx: -6, dy: 4, anchor: "end" });
-        }
+        const drawSec = (g, k, cx, cy) => {
+          section(g, sec, [cx, cy], k, { axis: sec.kind !== "T" });
+          if ((sec.kind === "rect" || sec.kind === "circle") && y0) {
+            const w = sec.kind === "rect" ? sec.b / 2 : Math.sqrt((sec.d / 2) ** 2 - y0 ** 2);
+            g.line([cx - w * k, cy + y0 * k], [cx + w * k, cy + y0 * k], "fig-thin");
+            // (A circle's chord near its top or bottom: the level drawn on out
+            // past the circle's side, its name there, not on the rim.)
+            const out = sec.kind === "circle" ? sec.d / 2 : w;
+            if (out > w) g.line([cx - out * k, cy + y0 * k], [cx - w * k, cy + y0 * k], "fig-dashed");
+            g.label([cx - out * k, cy + y0 * k], `y = ${num(y0)} cm`, { dx: -6, dy: 4, anchor: "end" });
+          }
+        };
+        f.byWidth(
+          500,
+          // A phone: the section under the beam, bigger (beside it, its labels ran into the supports and each other).
+          (g) => {
+            const k = (Math.max(beam.L, 3) * 0.4) / big;
+            drawSec(g, k, beam.L / 2, -0.55 * Math.max(beam.L, 3) - (k * big) / 2);
+          },
+          (g) => {
+            const k = (Math.max(beam.L, 3) * 0.32) / big;
+            drawSec(g, k, beam.L + 1.4 + (k * (sec.kind === "circle" ? sec.d : sec.kind === "rect" ? sec.b : sec.B)) / 2, -0.15);
+          },
+        );
+
       },
       answers,
       solution: [`Največja prečna sila: ${bs.how}`, ...sol],
@@ -201,7 +218,8 @@ function drawBeam(f, b) {
     f.label([b.L, 0], "B", { dx: 12, dy: -8, anchor: "start" });
     if (b.kind === "point") {
       f.force([b.a, 0], -90, { label: `F = ${q(b.F, "kN")}` });
-      f.dim([0, 0], [b.a, 0], `a = ${q(b.a, "m")}`, 40);
+      f.dim([0, 0], [b.a, 0], `a = ${q(b.a, "m")}`, 40, { beside: true }); // a short a: its label past the end
+
     } else f.dist([0, 0], [b.L, 0], { label: `q = ${q(b.q, "kN/m")}` });
   }
   f.dim([0, 0], [b.L, 0], `L = ${q(b.L, "m")}`, b.kind === "point" ? 66 : 40);

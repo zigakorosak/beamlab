@@ -1,12 +1,12 @@
 // The worked equilibrium equations shown after a reactions answer: what a
 // student would write on paper. ΣFx, ΣFy, ΣM about the first support, and
 // for each hinge "M = 0" from the part to its right. Distributed loads go
-// in as their resultants (listed first).
+// in as their resultants (listed first; one that changes sign, per part).
 //
 // Moments are counterclockwise positive, forces up/right positive, the
 // reactions' assumed directions as drawn (Ax →, Ay ↑, MA ↺).
 
-import { distResultant, pointComponents } from "./model.js";
+import { distPieces, pointComponents } from "./model.js";
 import { fmt } from "./format.js";
 
 /** "a + b − 3" from [{ sign, text }]. */
@@ -23,7 +23,7 @@ export function equilibriumSteps(model, sol) {
   const lines = [];
   const reactions = sol.reactions;
 
-  const dists = model.loads.filter((l) => l.type === "dist").map((l) => ({ load: l, ...distResultant(l) }));
+  const dists = model.loads.filter((l) => l.type === "dist").flatMap((l) => distPieces(l));
   for (const d of dists) {
     const { load } = d;
     const shape =
@@ -54,7 +54,8 @@ export function equilibriumSteps(model, sol) {
   lines.push(`ΣFy = 0:  ${sum(fyTerms)} = 0`);
 
   // ΣM about a point, for the actions with x in [from, to].
-  const momentEq = (forces, x0, from, to, skipName) => {
+  // `coupleFrom`: a couple right on a hinge acts on the part to its right (solver.js).
+  const momentEq = (forces, x0, from, to, skipName, coupleFrom = from) => {
     const terms = [];
     const inPart = (x) => x >= from - 1e-9 && x <= to + 1e-9;
     for (const r of reactions) {
@@ -69,7 +70,7 @@ export function equilibriumSteps(model, sol) {
       if (Math.abs(arm) > 1e-9 && Math.abs(f.fy) > 1e-9)
         terms.push(forceTerm(f.fy * arm, `${fmt(Math.abs(f.fy))}·${fmt(Math.abs(arm))}`));
     }
-    for (const c of couples) if (inPart(c.x)) terms.push(forceTerm(c.c));
+    for (const c of couples) if (c.x >= coupleFrom - 1e-9 && c.x <= to + 1e-9) terms.push(forceTerm(c.c));
     return sum(terms);
   };
 
@@ -80,13 +81,9 @@ export function equilibriumSteps(model, sol) {
   for (const g of [...model.hinges].sort((a, b) => a.x - b.x)) {
     const rightDists = model.loads
       .filter((l) => l.type === "dist" && l.x2 > g.x + 1e-9)
-      .map((l) => {
-        const x1 = Math.max(l.x1, g.x);
-        const q = (x) => l.q1 + ((l.q2 - l.q1) * (x - l.x1)) / (l.x2 - l.x1);
-        const d = distResultant({ x1, x2: l.x2, q1: q(x1), q2: l.q2 });
-        return { x: d.x, fx: 0, fy: -d.F };
-      });
-    const eq = momentEq([...points, ...rightDists], g.x, g.x + 1e-6, Infinity);
+      .flatMap((l) => distPieces(l, g.x))
+      .map((d) => ({ x: d.x, fx: 0, fy: -d.F }));
+    const eq = momentEq([...points, ...rightDists], g.x, g.x + 1e-6, Infinity, undefined, g.x);
     lines.push(`Hinge at x = ${fmt(g.x)} m, part to its right, ΣM = 0:  ${eq} = 0`);
   }
 

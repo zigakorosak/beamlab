@@ -5,7 +5,7 @@
 // M_A and the moments of the three members meeting at B, the exam's
 // "kontrola momentov v točki B" (26 − 9 − 22 + 5 = 0 on 30.1.2012).
 
-import { ans, num, q } from "../kit.js";
+import { ans, num, q, nearZero } from "../kit.js";
 import { solveFrame, maxAbsM } from "./frame.js";
 import { drawDiagrams } from "./drawFrame.js";
 import { DASHED_TEXT, clean, drawFrameModel, labelNodes, reactionAnswers } from "./common.js";
@@ -53,7 +53,8 @@ export const okvirKonzola = {
       if (kinds.includes("Fv")) p.Fv = r.int(2, 12);
       if (kinds.includes("M0")) p.M0 = r.int(2, 10) * (r.chance(0.5) ? 1 : -1);
       const ex = this.build(p);
-      if (ex.answers.some((a) => Math.abs(a.value) > 1e-6 && Math.abs(a.value) < 0.05)) continue;
+      // No near-zero non-zero answers: a sign error would pass within the 1 % scale.
+      if (ex.answers.some((a) => Math.abs(a.value) > 1e-6 && Math.abs(a.value) < Math.max(0.05, 0.02 * Math.max(...ex.answers.filter((b) => b.unit === a.unit).map((b) => Math.abs(b.value)))))) continue;
       if (Math.abs(ex.maxM) < 1) continue;
       return p;
     }
@@ -70,14 +71,17 @@ export const okvirKonzola = {
     for (const l of model.loads) {
       if (l.type === "dist") loadText.push(`zvezna obtežba ${l.label} = ${q(l.q, "kN/m")} po vsej prečki`);
       else if (l.type === "moment") loadText.push(`moment ${l.label} = ${q(Math.abs(l.M), "kNm")} v vozlišču B (${l.M > 0 ? "v nasprotni smeri urinega kazalca" : "v smeri urinega kazalca"})`);
-      else if (l.angle === -90) loadText.push(`navpična sila ${l.label} = ${q(l.F, "kN")} na koncu prečke (D)`);
+      else if (l.angle === -90) loadText.push(`navpična sila ${l.label} = ${q(l.F, "kN")} (navzdol) na koncu prečke (D)`);
       else loadText.push(`vodoravna sila ${l.label} = ${q(l.F, "kN")} v ${l.angle === 0 ? "desno" : "levo"} na vrhu stebra (${model.top ? "B" : "C"})`);
     }
     const answers = [
       ...reactionAnswers(sol),
       ans("MAB", "M_{AB}(B)", "kNm", clean(AB.end.M), { note: "v stebru tik pod B" }),
       ans("Mbeam", `M_{${model.beamId}}(B)`, "kNm", clean(beamAtB), { note: "v prečki ob B" }),
+      ...(model.top ? [] : [ans("MBC", "M_{BC}(B)", "kNm", clean(sol.members.BC.start.M), { note: "v stebru tik nad B" })]),
     ];
+    // Reactions and moments at B can come out 0 (or nearly): 1 % of the largest one.
+    nearZero(answers, answers.map((a) => a.key));
     const names = Object.fromEntries(Object.keys(model.nodes).map((k) => [k, k]));
     return {
       title: this.title,
@@ -96,10 +100,9 @@ export const okvirKonzola = {
         // Heights at the beam's far end, outside (clear of the column's loads).
         const xd = sx * p.b, off = sx > 0 ? 46 : -46;
         if (model.top) f.dim([xd, 0], [xd, p.H], `${num(p.H)} m`, off);
-        else {
-          f.dim([xd, 0], [xd, p.hb], `${num(p.hb)} m`, off);
-          f.dim([xd, p.hb], [xd, p.H], `${num(p.H - p.hb)} m`, off);
-        }
+        // (a chain: a short part's label that doesn't fit moves a row out)
+        else f.dimChain([[xd, 0], [xd, p.hb], [xd, p.H]], [`${num(p.hb)} m`, `${num(p.H - p.hb)} m`], off);
+
       },
       answers,
       solution: [

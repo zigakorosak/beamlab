@@ -150,9 +150,10 @@ export function solveFrame(model) {
         const um = (u0 + u1) / 2;
         const R = ((u1 - u0) / 6) * (qAt(u0) + 4 * qAt(um) + qAt(u1));
         const S1 = ((u1 - u0) / 6) * (qAt(u0) * u0 + 4 * qAt(um) * um + qAt(u1) * u1);
-        if (Math.abs(R) < 1e-14) continue;
-        const uc = S1 / R;
-        addF([k.A[0] + k.e[0] * uc, k.A[1] + k.e[1] * uc], [it.d[0] * R, it.d[1] * R]);
+        // Force R at the member's start plus the couple of its offset (also
+        // right when q changes sign and R = 0).
+        addF(k.A, [it.d[0] * R, it.d[1] * R]);
+        M += cross(k.e, it.d) * S1;
       } else if (inRight(it)) {
         if (it.kind === "F") addF(it.p, it.F);
         else M += it.M;
@@ -172,13 +173,14 @@ export function solveFrame(model) {
       } else if (it.kind === "M") M += it.M;
       else {
         const k = byId[it.member];
-        const R = ((it.to - it.from) * (it.q0 + it.q1)) / 2;
-        if (Math.abs(R) < 1e-14) continue;
-        const uc = it.from + ((it.to - it.from) * (it.q0 + 2 * it.q1)) / (3 * (it.q0 + it.q1));
+        const u0 = it.from, u1 = it.to, um = (u0 + u1) / 2;
+        const R = ((u1 - u0) * (it.q0 + it.q1)) / 2;
+        // First moment ∫q·u du (Simpson, exact for linear q).
+        const S1 = ((u1 - u0) / 6) * (it.q0 * u0 + 2 * (it.q0 + it.q1) * um + it.q1 * u1);
         const F = [it.d[0] * R, it.d[1] * R];
         Fx += F[0];
         Fy += F[1];
-        M += cross([k.A[0] + k.e[0] * uc, k.A[1] + k.e[1] * uc], F);
+        M += cross(k.A, F) + cross(k.e, it.d) * S1;
       }
     }
     return [Fx, Fy, M];

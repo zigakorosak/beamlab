@@ -19,7 +19,6 @@
 
 import {
   EPS_X,
-  distResultant,
   keyPoints,
   near,
   pointComponents,
@@ -379,9 +378,4 @@ export function maxAbs(sol, fn) {
   for (const [, v] of sampleDiagram(sol, fn, 24)) m = Math.max(m, Math.abs(v));
   if (fn === sol.M) for (const e of momentExtrema(sol)) m = Math.max(m, Math.abs(e.value));
   return m;
-}
-
-/** Resultants of the distributed loads (for the free-body sketch). */
-export function resultants(model) {
-  return model.loads.filter((l) => l.type === "dist").map((l) => ({ id: l.id, ...distResultant(l) }));
 }

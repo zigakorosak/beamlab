@@ -75,7 +75,7 @@ const secText = (s) =>
       ? `polnega krožnega prereza s premerom d = ${num(s.d)} cm`
       : s.kind === "tube"
         ? `cevnega prereza z zunanjim premerom D = ${num(s.D)} cm in debelino stene t = ${num(s.t)} cm`
-        : `I prereza (višina H = ${num(s.H)} cm, pasnici B × t_f = ${num(s.B)} × ${num(s.tf)} cm, stojina t_w = ${num(s.tw)} cm; zaokrožitve zanemarite)`;
+        : `I-prereza (višina H = ${num(s.H)} cm, pasnici B × t_f = ${num(s.B)} × ${num(s.tf)} cm, stojina t_w = ${num(s.tw)} cm; zaokrožitve zanemarite)`;
 
 const matText = (m) =>
   m.name === "jeklo"

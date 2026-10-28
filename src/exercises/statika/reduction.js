@@ -11,7 +11,7 @@
 // positive; in 2D M_T = Σ[(x_i − x_T)·F_{iy} − (y_i − y_T)·F_{ix}].
 // Moment about an axis: M_e = M_P · e for any point P on the axis.
 
-import { ans, num, q } from "../kit.js";
+import { ans, num, q, nearZero } from "../kit.js";
 import { iso, svgText } from "../draw.js";
 import { s, arrowHead } from "../../render/svg.js";
 
@@ -49,7 +49,8 @@ export const redukcija2d = {
       const res = solve2d({ forces, T });
       if (norm(res.R) < 5 || Math.abs(res.R[1]) < 3) continue;
       if (Math.abs(res.MO) < 3 || Math.abs(res.MT) < 3 || Math.abs(res.MO - res.MT) < 3) continue;
-      if (Math.abs(res.x0) > 30) continue;
+      // x_0 within 0,5 m of O would be graded to millimetres (5 % of itself).
+      if (Math.abs(res.x0) > 30 || Math.abs(res.x0) < 0.5) continue;
       if (!clearFigure({ forces, T })) continue;
       return { forces, T };
     }
@@ -75,23 +76,27 @@ export const redukcija2d = {
         const y0b = Math.min(...ys) - 1.5, y1b = Math.max(...ys) + 1.5;
         const segs = arrows2d(params);
         f.bounds([[x0b, y0b], [x1b, y1b], ...segs.map((g) => g.b)]);
-        f.custom([[x0b, 0], [x1b, 0]], (Tf) => axisArrow(Tf, [x0b, 0], [x1b, 0], "x"));
-        f.custom([[0, y0b], [0, y1b]], (Tf) => axisArrow(Tf, [0, y0b], [0, y1b], "y"));
-        f.point([0, 0], "O", { dx: -6, dy: 16, anchor: "end" });
-        f.point(T, "T", { dx: 7, dy: 16 });
+        f.custom([[x0b, 0], [x1b, 0]], (Tf) => axisArrow(Tf, [x0b, 0], [x1b, 0], "x"), 28);
+        f.custom([[0, y0b], [0, y1b]], (Tf) => axisArrow(Tf, [0, y0b], [0, y1b], "y"), 28);
+        // (Or, a force's label there, another quadrant.)
+        f.point([0, 0], "O", { dx: -6, dy: 16, anchor: "end", alts: [[-6, -8, "end"], [6, 16, "start"], [6, -8, "start"]] });
+        f.point(T, "T", { dx: 7, dy: 16, alts: [[7, -8, "start"], [-7, 16, "end"], [-7, -8, "end"]] });
         forces.forEach((g, i) => {
           const ang = (Math.atan2(g.F[1], g.F[0]) * 180) / Math.PI;
           f.point(g.at, "", { dot: true });
           f.force(g.at, ang, { tail: true, world: segs[i].len, label: names[i], labelAt: "end" });
         });
       },
-      answers: [
-        ans("Rx", "R_x", "kN", R[0]),
-        ans("Ry", "R_y", "kN", R[1]),
-        ans("MT", "M_T", "kNm", MT),
-        ans("MO", "M_O", "kNm", MO),
-        ans("x0", "x_0", "m", x0, { note: "presečišče premice rezultante z osjo x" }),
-      ],
+      answers: nearZero(
+        [
+          ans("Rx", "R_x", "kN", R[0]),
+          ans("Ry", "R_y", "kN", R[1]),
+          ans("MT", "M_T", "kNm", MT),
+          ans("MO", "M_O", "kNm", MO),
+          ans("x0", "x_0", "m", x0, { note: "presečišče premice rezultante z osjo x" }),
+        ],
+        ["Rx", "Ry", "MT", "MO"],
+      ),
       solution: [
         `Rezultanta je enaka pri obeh redukcijah: R_x = ΣF_{ix} = ${sum(0)} = ${num(R[0])} kN, R_y = ΣF_{iy} = ${sum(1)} = ${num(R[1])} kN.`,
         `a) M_T = Σ[(x_i − x_T)·F_{iy} − (y_i − y_T)·F_{ix}]:`,
@@ -147,6 +152,9 @@ function clearFigure(params) {
   const segs = arrows2d(params);
   const gap = 0.09 * segs[0].span;
   const pts = [[0, 0], params.T, ...params.forces.map((g) => g.at)];
+  // Where the axes' names are (past the axes' ends, as in the figure).
+  const axisNames = [[Math.max(...pts.map((v) => v[0])) + 1.5, 0], [0, Math.max(...pts.map((v) => v[1])) + 1.5]];
+  const tags = [];
   for (let i = 0; i < pts.length; i++) for (let j = i + 1; j < pts.length; j++) if (norm(sub(pts[i], pts[j])) < 2) return false;
   for (let i = 0; i < segs.length; i++) {
     for (let j = i + 1; j < segs.length; j++) if (segSeg(segs[i], segs[j]) < gap) return false;
@@ -157,6 +165,9 @@ function clearFigure(params) {
     for (const P of [[0, 0], params.T, ...params.forces.map((g) => g.at)]) if (norm(sub(tag, P)) < 1.5 * gap) return false;
     for (let j = 0; j < segs.length; j++) if (j !== i && segDist(tag, segs[j].a, segs[j].b) < gap) return false;
     if (Math.abs(tag[0]) < gap || Math.abs(tag[1]) < gap) return false;
+    // Names apart from each other and from the axes' names.
+    if ([...tags, ...axisNames].some((P) => norm(sub(tag, P)) < 1.5 * gap)) return false;
+    tags.push(tag);
     // Not lying along an axis.
     const [a, b] = [segs[i].a, segs[i].b];
     if ((Math.abs(a[0]) < gap && Math.abs(b[0]) < gap) || (Math.abs(a[1]) < gap && Math.abs(b[1]) < gap)) return false;
@@ -301,15 +312,17 @@ export const redukcija3d = {
     if (variant === "tocka") text.push(`Reducirajte ta sistem v ${at}: določite komponente rezultante R in rezultirajočega momenta M_${point} v prikazanem koordinatnem sistemu.`);
     else
       text.push(
-        `a) Reducirajte sistem v ${at} (komponente momenta M_${point}).`,
+        `a) Reducirajte sistem v ${at} (velikost rezultante |R| in komponente momenta M_${point}).`,
         `b) S kolikšnim momentom deluje sistem okrog osi ${axis[0]}${axis[1]}, usmerjene od ${axis[0]} proti ${axis[1]}?`,
       );
     text.push("Momenti so desnosučni (M = r × F).");
 
-    const answers =
+    const answers = nearZero(
       variant === "tocka"
         ? [ans("Rx", "R_x", "kN", R[0]), ans("Ry", "R_y", "kN", R[1]), ans("Rz", "R_z", "kN", R[2]), ans("Mx", `M_{${point}x}`, "kNm", M[0]), ans("My", `M_{${point}y}`, "kNm", M[1]), ans("Mz", `M_{${point}z}`, "kNm", M[2])]
-        : [ans("R", "|R|", "kN", norm(R)), ans("Mx", `M_{${point}x}`, "kNm", M[0]), ans("My", `M_{${point}y}`, "kNm", M[1]), ans("Mz", `M_{${point}z}`, "kNm", M[2]), ans("Mos", `M_{${axis.join("")}}`, "kNm", os.Me)];
+        : [ans("R", "|R|", "kN", norm(R)), ans("Mx", `M_{${point}x}`, "kNm", M[0]), ans("My", `M_{${point}y}`, "kNm", M[1]), ans("Mz", `M_{${point}z}`, "kNm", M[2]), ans("Mos", `M_{${axis.join("")}}`, "kNm", os.Me)],
+      ["Rx", "Ry", "Rz", "Mx", "My", "Mz", "Mos"],
+    );
 
     const solution = [
       `Koordinate oglišč: ${NAMES.map((n) => `${n}${vec(K[n])}`).join(", ")} (m).`,
@@ -360,7 +373,7 @@ function drawBox(f, { a, b, c, forces, couple }, { K }) {
   const from = { x: "A", y: "C", z: "G" };
   for (const k of ["x", "y", "z"]) {
     const p0 = X(from[k]), p1 = iso(tips[k]);
-    f.custom([p0, p1], (T) => axisArrow(T, p0, p1, k));
+    f.custom([p0, p1], (T) => axisArrow(T, p0, p1, k), 30); // room for the axis name past the tip
   }
   // Corner names, pushed away from the centre of the picture.
   for (const n of NAMES) {
@@ -369,23 +382,39 @@ function drawBox(f, { a, b, c, forces, couple }, { K }) {
     const L = Math.hypot(dx, dy) || 1;
     dx /= L; dy /= L;
     if (n === "O") { dx = 0.7; dy = 0.7; } // inside the box drawing, up-right of the hidden corner
-    f.label(P, n, { dx: dx * 13, dy: -dy * 13 + 5, cls: "fig-name" });
+    // Or (that's on an edge or an arrow) another way round the corner.
+    const alts = [14, 20, 27].flatMap((r) => [0, 45, -45, 90, -90, 135, -135, 180].map((t) => {
+      const c = Math.cos((t * Math.PI) / 180), sn = Math.sin((t * Math.PI) / 180);
+      const ex = dx * c - dy * sn, ey = dx * sn + dy * c;
+      return [ex * r, -ey * r + 5, ex > 0.4 ? "start" : ex < -0.4 ? "end" : "middle"];
+    }));
+    f.label(P, n, { dx: dx * 13, dy: -dy * 13 + 5, cls: "fig-name", alts });
   }
   // Dimensions as letters with values, next to visible edges.
-  const edgeLabel = (u, v, text, ox, oy, anchor = "middle") => {
+  // (A short edge on a phone puts its label against a corner's name: then a row lower, or aside.)
+  const edgeLabel = (u, v, text, ox, oy, anchor = "middle", alts) => {
     const m = [(X(u)[0] + X(v)[0]) / 2, (X(u)[1] + X(v)[1]) / 2];
-    f.label(m, text, { dx: ox, dy: oy, anchor, cls: "fig-dim-label" });
+    f.label(m, text, { dx: ox, dy: oy, anchor, cls: "fig-dim-label", alts });
   };
-  edgeLabel("B", "C", `a = ${num(a)} m`, 10, 16, "start");
-  edgeLabel("A", "B", `b = ${num(b)} m`, 0, 18);
+  edgeLabel("B", "C", `a = ${num(a)} m`, 10, 16, "start", [[10, 28, "start"], [14, 6, "start"]]);
+  edgeLabel("A", "B", `b = ${num(b)} m`, 0, 18, "middle", [[0, 31, "middle"], [-4, 18, "end"]]);
   edgeLabel("A", "D", `c = ${num(c)} m`, -8, 4, "end");
   // Forces from their points toward the named corners.
   const L0 = 0.45 * size;
+  // +1 / −1: the left / right of the arrow P→Q, whichever faces away from the box's centre.
+  const awaySide = (P, Q, len) => {
+    const L = Math.hypot(Q[0] - P[0], Q[1] - P[1]) || 1;
+    const ux = (Q[0] - P[0]) / L, uy = (Q[1] - P[1]) / L;
+    const mx = P[0] + (ux * len) / 2 - ctr[0], my = P[1] + (uy * len) / 2 - ctr[1];
+    return -uy * mx + ux * my >= 0 ? 1 : -1;
+  };
   forces.forEach((g, i) => {
     const P = X(g.from), Q = X(g.to);
     const len = Math.min(L0, 0.5 * Math.hypot(Q[0] - P[0], Q[1] - P[1]));
     const ang = (Math.atan2(Q[1] - P[1], Q[0] - P[0]) * 180) / Math.PI;
-    f.force(P, ang, { tail: true, world: len, label: `F_${i + 1}`, labelAt: "end" });
+    // Label past the tip or beside the shaft (first the side away from the
+    // box's centre), wherever it crosses no edge or other label.
+    f.force(P, ang, { tail: true, world: len, label: `F_${i + 1}`, labelAt: "auto", labelSide: awaySide(P, Q, len) });
   });
   if (couple) {
     const P = X(couple.from), Q = X(couple.to);
@@ -404,7 +433,21 @@ function drawBox(f, { a, b, c, forces, couple }, { K }) {
         s("line", { x1, y1, x2: x2 - vx * 6, y2: y2 - vy * 6 }),
         arrowHead(x2, y2, vx, vy, 10),
         arrowHead(x2 - vx * 9, y2 - vy * 9, vx, vy, 10),
-        svgText(x2 + vx * 12, y2 + vy * 12 + 4, "M_1", { class: "fig-force-label", "text-anchor": vx > 0.35 ? "start" : vx < -0.35 ? "end" : "middle" }),
+        // Past the tip or beside the shaft, wherever it is clearest (like the forces).
+        (() => {
+          const at = (side) => {
+            // world left (+1) = screen (vy, −vx)
+            const lx = (x1 + x2) / 2 + vy * 16 * side, ly = (y1 + y2) / 2 - vx * 16 * side;
+            return [lx, ly + 4, vy * side > 0.35 ? "start" : vy * side < -0.35 ? "end" : "middle"];
+          };
+          const side = awaySide(P, Q, len);
+          const anc = (k) => (k > 0.35 ? "start" : k < -0.35 ? "end" : "middle");
+          // (or, a short arrow among others, past its tail or further out)
+          const alts = [[x2 + vx * 12, y2 + vy * 12 + 4, anc(vx)], at(side), at(-side), [x2 + vx * 22, y2 + vy * 22 + 4, anc(vx)], [x1 - vx * 12, y1 - vy * 12 + 4, anc(-vx)], [x1 - vx * 12 + vy * 12, y1 - vy * 12 - vx * 12 + 4, anc(-vx)], [x1 - vx * 12 - vy * 12, y1 - vy * 12 + vx * 12 + 4, anc(-vx)]];
+          const t = svgText(alts[0][0], alts[0][1], "M_1", { class: "fig-force-label", "text-anchor": alts[0][2] });
+          t.alts = alts;
+          return t;
+        })(),
       );
     }, 30);
   }

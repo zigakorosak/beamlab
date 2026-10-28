@@ -89,7 +89,7 @@ src/
   exercises/  — exam exercises: kit, figure kit, registry, one folder per topic group
   ui/         — screens: home, wizard, game, Build, exercises, settings, how to play
   main.js     — top-level screen router
-test/         — solver checks (node --test)
+test/         — solver, grading and exercise checks (node --test)
 scripts/      — archive and release scripts
 reference/    — GeoQuiz / Anatomy Quiz sources, beam-calculator pages, the Osnove mehanike
                 course notes and exam photos (reference/4) (local only, gitignored)

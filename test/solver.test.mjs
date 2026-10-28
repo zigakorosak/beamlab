@@ -5,6 +5,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { solve, momentExtrema, indeterminacy } from "../src/core/solver.js";
+import { equilibriumSteps } from "../src/core/explain.js";
 
 const close = (actual, expected, msg, tol = 1e-6) =>
   assert.ok(Math.abs(actual - expected) <= tol * Math.max(1, Math.abs(expected)), `${msg}: ${actual} ≠ ${expected}`);
@@ -217,4 +218,138 @@ test("deflection: simply supported UDL sags most at midspan, 5wL⁴/384", () => 
   const s = solve(beam(L, [["pin", 0], ["roller", L]], [udl(0, L, w)]));
   const mid = s.deflection.reduce((best, p) => (Math.abs(p[0] - L / 2) < Math.abs(best[0] - L / 2) ? p : best));
   close(mid[1], (-5 * w * L ** 4) / 384, "w(L/2)", 1e-3);
+});
+
+// Each printed equation, with the solved reactions put in, adds up to 0.
+function checkEquations(model) {
+  const sol = solve(model);
+  const eqs = equilibriumSteps(model, sol).filter((l) => l.includes(":  "));
+  for (const line of eqs) {
+    let e = line.split(":  ")[1].replace(/ = 0$/, "");
+    for (const r of sol.reactions)
+      e = e.replaceAll(`M${r.name}`, `(${r.M})`).replaceAll(`${r.name}x`, `(${r.Rx})`).replaceAll(`${r.name}y`, `(${r.Ry})`);
+    const value = Function(`return ${e.replaceAll("·", "*").replaceAll("−", "-")}`)();
+    close(value, 0, line, 0.1); // the printed numbers are rounded to 2 decimals
+  }
+  return eqs;
+}
+
+test("equations: a couple on a hinge belongs to the part right of it (as the solver has it)", () => {
+  const eqs = checkEquations(beam(8, [["fixed", 0], ["roller", 8]], [couple(4, 10)], [4]));
+  assert.ok(eqs.at(-1).includes("By·4 + 10"), eqs.at(-1));
+});
+
+test("equations: a distributed load that changes sign goes in as two resultants", () => {
+  // 4 → −4 kN/m over 1…7: no net force, but a couple; split at q = 0 (x = 4).
+  checkEquations(beam(8, [["fixed", 0], ["roller", 8]], [udl(1, 7, 4, -4), P(6, 5)], [3]));
+  checkEquations(beam(8, [["fixed", 0], ["roller", 8]], [udl(1, 7, 4, -1)], [4]));
+  checkEquations(beam(8, [["pin", 0], ["roller", 8]], [udl(0, 8, -3, 6)]));
+});
+
+test("generator: distributed loads never overlap (two equal ones would look like one)", async () => {
+  const { generateProblem, BEAM_TYPES } = await import("../src/core/generator.js");
+  let seed = 11;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (const t of BEAM_TYPES)
+    for (let i = 0; i < 300; i++) {
+      const d = generateProblem(t.id, "hard", rnd).loads.filter((l) => l.type === "dist");
+      for (let a = 0; a < d.length; a++)
+        for (let b = a + 1; b < d.length; b++) assert.ok(Math.min(d[a].x2, d[b].x2) <= Math.max(d[a].x1, d[b].x1) + 1e-9, JSON.stringify(d));
+    }
+});
+
+test("generator: a cantilever fixed on the right gets loads at its free tip (x = 0) too", async () => {
+  const { generateProblem } = await import("../src/core/generator.js");
+  let seed = 3;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let tip = 0;
+  for (let i = 0; i < 300; i++) {
+    const m = generateProblem("cantilever", "easy", rnd);
+    if (m.supports[0].x > 0 && m.loads.some((l) => l.type === "point" && l.x === 0)) tip++;
+  }
+  assert.ok(tip > 10, `${tip} tip loads`);
+});
+
+test("Practice figure gives every segment length and an inclined force's angle, even on a phone", async () => {
+  class El {
+    constructor(tag) { this.tagName = tag; this.attrs = {}; this.children = []; this.text = ""; this.dataset = {}; }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    append(...cs) { for (const c of cs) this.children.push(c); }
+    set textContent(v) { this.text = String(v); }
+    get textContent() { return this.text + this.children.map((c) => c.textContent).join(""); }
+    *walk() { for (const c of this.children) { yield c; yield* c.walk(); } }
+  }
+  const saved = globalThis.document;
+  globalThis.document = { createElementNS: (ns, tag) => new El(tag) };
+  try {
+    const { drawModel } = await import("../src/render/beamView.js");
+    const { makeScale } = await import("../src/render/board.js");
+    const { keyPoints } = await import("../src/core/model.js");
+    // 0,5 m segments on a 13 m beam: 6 px each at 320 px.
+    const m = beam(13, [["pin", 0], ["roller", 12]], [P(0.5, 10, 30), P(1, 10, -45), P(12.5, 8, 180 - 60)]);
+    const { X } = makeScale(320, -1.4, 14.4);
+    const all = [...drawModel(m, { X }).walk()];
+    const ruler = all.find((e) => e.attrs.class === "ruler");
+    const lengths = [...ruler.walk()].filter((e) => e.tagName === "text" && e.textContent !== "m").map((e) => e.textContent);
+    const xs = keyPoints(m);
+    assert.deepEqual(lengths, xs.slice(1).map((x, i) => String(x - xs[i])));
+    const angles = all.filter((e) => e.attrs.class === "load-angle-label").map((e) => e.textContent);
+    assert.deepEqual(angles, ["30°", "45°", "60°"]);
+  } finally {
+    globalThis.document = saved;
+  }
+});
+
+test("Practice figure: no text clipped or on another text, on a phone and a desktop", async () => {
+  class El {
+    constructor(tag) { this.tagName = tag; this.attrs = {}; this.children = []; this.text = ""; this.dataset = {}; this.parent = null; }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    append(...cs) { for (const c of cs) { c.parent = this; this.children.push(c); } }
+    set textContent(v) { this.text = String(v); }
+    get textContent() { return this.text + this.children.map((c) => c.textContent).join(""); }
+    *walk() { for (const c of this.children) { yield c; yield* c.walk(); } }
+  }
+  // Character widths (em) of the app's font as Firefox draws it, bold.
+  const EM = { ",": 0.278, ".": 0.278, " ": 0.27, "°": 0.428, "/": 0.4, "→": 0.84, m: 0.96, M: 0.953, N: 0.8, D: 0.8, E: 0.64, F: 0.64 };
+  const em = (c) => EM[c] ?? (/[0-9=]/.test(c) ? 0.572 : /[A-C]/.test(c) ? 0.672 : 0.587);
+  const has = (e, c) => { for (let x = e; x; x = x.parent) if ((x.attrs?.class ?? "").split(" ").includes(c)) return true; return false; };
+  const saved = globalThis.document;
+  globalThis.document = { createElementNS: (ns, tag) => new El(tag) };
+  try {
+    const { drawModel, MODEL_BAND } = await import("../src/render/beamView.js");
+    const { makeScale } = await import("../src/render/board.js");
+    const { generateProblem, BEAM_TYPES, LEVELS } = await import("../src/core/generator.js");
+    let seed = 17;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const fails = [];
+    for (const t of BEAM_TYPES)
+      for (const lv of LEVELS)
+        for (let i = 0; i < 40; i++) {
+          const m = generateProblem(t.id, lv.id, rnd);
+          const sol = solve(m);
+          for (const width of [326, 800])
+            for (const known of [false, true]) {
+              const { X } = makeScale(width, -1.4, m.beam.length + 1.4);
+              const g = drawModel(m, { X, width, reactions: known ? sol.reactions : null, unknowns: !known, resultants: known });
+              const boxes = [...g.walk()].filter((e) => e.tagName === "text").map((e) => {
+                const size = has(e, "ruler") || has(e, "load-angle-label") ? 11 : 12;
+                const w = [...e.textContent].reduce((a, c) => a + em(c) * size, 0);
+                const x = Number(e.attrs.x), y = Number(e.attrs.y), anchor = e.attrs["text-anchor"] ?? "start";
+                const x0 = anchor === "end" ? x - w : anchor === "middle" ? x - w / 2 : x;
+                return { s: e.textContent, x0, x1: x0 + w, y0: y - 0.74 * size, y1: y + 0.2 * size };
+              });
+              const at = `${t.id}/${lv.id} ${width} px ${known ? "solved" : "asked"}`;
+              for (const b of boxes)
+                if (b.x0 < -0.5 || b.x1 > width + 0.5 || b.y0 < -0.5 || b.y1 > MODEL_BAND.height + 0.5) fails.push(`${at}: "${b.s}" clipped`);
+              for (let a = 0; a < boxes.length; a++)
+                for (let b = a + 1; b < boxes.length; b++) {
+                  const [A, B] = [boxes[a], boxes[b]];
+                  if (Math.min(A.x1, B.x1) - Math.max(A.x0, B.x0) > 2 && Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0) > 2) fails.push(`${at}: "${A.s}" on "${B.s}"`);
+                }
+            }
+        }
+    assert.deepEqual(fails.slice(0, 10), []);
+  } finally {
+    globalThis.document = saved;
+  }
 });

@@ -7,6 +7,7 @@
 // B × H, flanges t_1, webs t_2). Dimensions in mm, M_T in kNm, τ in MPa.
 
 import { ans, num, q } from "../kit.js";
+import { svgText } from "../draw.js";
 
 /** Midline geometry: segments [{ s, t }] (lengths in mm) and A_m [mm²]. */
 export function thinWalled(p) {
@@ -44,7 +45,7 @@ export const tankostenski = {
       if (p.kind === "cev" && p.D / p.t < 15) continue;
       if (p.kind === "skatla" && (Math.min(p.B, p.H) / Math.max(p.t1, p.t2) < 10 || p.H === p.B)) continue;
       const x = torsionThin(p);
-      if (x.tauZ < 3 || x.tauO > 400) continue;
+      if (x.tauZ < 3 || x.tauO > 250) continue;
       return p;
     }
   },
@@ -112,7 +113,12 @@ function drawPair(f, p) {
     f.dim([c[0] - W / 2, H / 2], [c[0] + W / 2, H / 2], `B = ${p.B} mm`, -16);
     f.dim([c[0] - W / 2, -H / 2], [c[0] - W / 2, H / 2], `H = ${p.H} mm`, -18);
     f.label([c[0], H / 2 - vis(p.t1)], `t_1 = ${p.t1} mm`, { dy: 16 });
-    f.label([c[0] + W / 2 - vis(p.t2), 0], `t_2 = ${p.t2} mm`, { dx: -6, dy: 4, anchor: "end" });
+    // Inside, by the right web, or (a low box on a phone, t_1's label in the way) outside it.
+    f.custom([[c[0] + W / 2, 0]], (T) => {
+      const t = svgText(T.X(c[0] + W / 2 - vis(p.t2)) - 6, T.Y(0) + 4, `t_2 = ${p.t2} mm`, { class: "fig-label", "text-anchor": "end" });
+      t.alts = [[Number(t.getAttribute("x")), T.Y(0) + 4, "end"], [T.X(c[0] + W / 2) + 6, T.Y(0) + 4, "start"]];
+      return t;
+    });
   }
 }
 

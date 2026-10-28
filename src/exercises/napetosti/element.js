@@ -14,7 +14,7 @@
 //   φ is then exactly (σ_N(φ), τ_N(φ)), so X is φ = 0 and Y is φ = 90°.
 
 import { s, arrow } from "../../render/svg.js";
-import { svgText } from "../draw.js";
+import { svgText, textWidth } from "../draw.js";
 import { deg, num, rad } from "../kit.js";
 
 /** A number for a product or sum in a solution line: negative ones in brackets. */
@@ -44,7 +44,7 @@ export function planeStress(sx, sy, txy) {
  * The steps that find α the way it's done by hand: arctan, then the
  * quadrant from the sign of σx − σy. Returns solution lines.
  */
-export function alphaSteps(sx, sy, txy, { names = ["σ_x", "σ_y", "τ_{xy}"], unit = "MPa", sigma = "σ_1" } = {}) {
+export function alphaSteps(sx, sy, txy, { names = ["σ_x", "σ_y", "τ_{xy}"], unit = " MPa", sigma = "σ_1", normal = "σ_N" } = {}) {
   const [nx, ny, nt] = names;
   const st = planeStress(sx, sy, txy);
   const d = sx - sy;
@@ -58,7 +58,7 @@ export function alphaSteps(sx, sy, txy, { names = ["σ_x", "σ_y", "τ_{xy}"], u
     if (d > 0) lines.push(`Ker je ${nx} − ${ny} > 0 (točka X leži desno od središča C), je 2α = ${num(st.twoAlpha)}° in α = ${num(st.alpha)}° (smer ${sigma}).`);
     else lines.push(`Ker je ${nx} − ${ny} < 0 (točka X leži levo od središča C), 2α popravimo za 180°: 2α = ${num(st.twoAlpha)}°, α = ${num(st.alpha)}° (smer ${sigma}).`);
   }
-  lines.push(`Kontrola: σ_N(α) = ${num(st.C)} + ${par((sx - sy) / 2)}·cos(${num(st.twoAlpha)}°) + ${par(txy)}·sin(${num(st.twoAlpha)}°) = ${num(st.sN(st.alpha))} ${unit} = ${sigma} ✓`);
+  lines.push(`Kontrola: ${normal}(α) = ${num(st.C)} + ${par((sx - sy) / 2)}·cos(${num(st.twoAlpha)}°) + ${par(txy)}·sin(${num(st.twoAlpha)}°) = ${num(st.sN(st.alpha))}${unit} = ${sigma} ✓`);
   return lines;
 }
 
@@ -127,9 +127,16 @@ export function stressElement(f, { sx = 0, sy = 0, txy = 0, rot = 0, c = [0, 0],
       }
       return g;
     },
-    64,
+    // Room for the arrows and the longest text past their ends (σ = 70 on a phone was cut off).
+    // An upright element has its texts right of or above the arrows: the left side needs only
+    // the arrows (a phone's two sides together are capped, "σ = −130" on the right was cut off).
+    (() => {
+      const pad = Math.max(64, 55 + 7 * Math.max(0, ...Object.values(labels).filter(Boolean).map((t) => String(t).length)));
+      return rot === 0 ? { l: 64, r: pad, t: pad, b: pad } : pad;
+    })(),
   );
 }
+
 
 /**
  * Mohr's circle (world units = MPa): σ axis right, τ axis up, X = (σx, τxy),
@@ -139,13 +146,24 @@ export function stressElement(f, { sx = 0, sy = 0, txy = 0, rot = 0, c = [0, 0],
 export function mohrCircle(f, sx, sy, txy, { extra = [], unit = "MPa", names = ["X", "Y"] } = {}) {
   const st = planeStress(sx, sy, txy);
   const { C, R } = st;
+  const blank = () => s("g"); // (an item that only keeps room)
   const lo = Math.min(st.s2, 0) - 0.3 * R;
-  const hi = Math.max(st.s1, 0) + 0.35 * R;
-  f.bounds([[lo, -1.2 * R], [hi, 1.2 * R]]);
-  f.force([lo, 0], 0, { tail: true, world: hi - lo, cls: "fig-axis" });
+  // The σ axis reaches past the circle far enough for its name to sit
+  // beside the circle, not on it: a share k of the drawing's width (about
+  // 60 px; the scale depends on the screen, a phone's drawing is narrower).
+  // (A phone's drawing is as wide as the screen and far from as tall as
+  // allowed: three rows' room above and below the circle for the points' texts.)
+  const sigmaAxis = (k, room) => (g) => {
+    const hi = Math.max(Math.max(st.s1, 0) + 0.35 * R, st.s1 + (k / (1 - k)) * (st.s1 - lo));
+    g.bounds([[lo, -1.2 * R], [hi, 1.2 * R]]);
+    if (room) g.custom([[C, R], [C, -R]], blank, { l: 0, r: 0, t: room, b: room });
+    g.force([lo, 0], 0, { tail: true, world: hi - lo, cls: "fig-axis" });
+    g.label([hi, 0], `σ [${unit}]`, { dx: 2, dy: -10, anchor: "end", cls: "fig-name", alts: [[2, 20, "end"], [2, -24, "end"], [2, 34, "end"], [2, -38, "end"]] });
+  };
+  f.byWidth(500, sigmaAxis(0.24, 54), sigmaAxis(0.1, 0));
   f.force([0, -1.2 * R], 90, { tail: true, world: 2.4 * R, cls: "fig-axis" });
-  f.label([hi, 0], `σ [${unit}]`, { dx: 2, dy: -10, anchor: "end", cls: "fig-name" });
-  f.label([0, 1.2 * R], "τ", { dx: -10, dy: 6, anchor: "end", cls: "fig-name" });
+
+  f.label([0, 1.2 * R], "τ", { dx: -10, dy: 6, anchor: "end", cls: "fig-name", alts: [[10, 6, "start"]] });
   f.circle([C, 0], R, "fig-rope");
   const X = [sx, txy], Y = [sy, -txy];
   f.dashed(X, Y);
@@ -154,15 +172,50 @@ export function mohrCircle(f, sx, sy, txy, { extra = [], unit = "MPa", names = [
   if (Math.abs(st.twoAlpha) > 3) f.angle([C, 0], 0, st.twoAlpha, "2α", 26);
   const side = (p) => (p[0] >= C ? { dx: 8, anchor: "start" } : { dx: -8, anchor: "end" });
   const vert = (p) => (p[1] >= 0 ? -8 : 16);
-  for (const [p, name] of [[X, names[0]], [Y, names[1]]]) {
-    f.point(p, `${name} (${num(p[0])}; ${num(p[1])})`, { ...side(p), dy: vert(p) });
-  }
-  f.point([C, 0], `C = ${num(C)}`, { dx: 0, dy: 16, anchor: "middle" });
-  f.point([st.s1, 0], `σ_1 = ${num(st.s1)}`, { dx: 6, dy: 16, anchor: "start" });
-  f.point([st.s2, 0], `σ_2 = ${num(st.s2)}`, { dx: -6, dy: 16, anchor: "end" });
+  // Other places for a point's text when it would sit on another one or on
+  // a line (a phone's small circle): the other side above/below, then across.
+  const others = (p) => {
+    const { dx, anchor } = side(p), dy = vert(p), flip = anchor === "start" ? "end" : "start";
+    return [[dx, dy === -8 ? 16 : -8, anchor], [-dx, dy, flip], [-dx, dy === -8 ? 16 : -8, flip]];
+  };
+  // On a phone the long "X (σ; τ)" texts go inside the circle, towards the
+  // σ axis (beside the points, outside, they took most of the width); or
+  // outside, beside the point or a row further out; or, when the circle is
+  // crowded, clear of it over the point: above its top (a point in the upper
+  // half) or below its bottom (the lower half).
+  const pointText = (p, text) => {
+    const inward = p[0] >= C ? "end" : "start", dxIn = p[0] >= C ? -6 : 6;
+    const dyIn = p[1] >= 0 ? 18 : -9;
+    const near = [[dxIn, dyIn, inward], [dxIn, dyIn === 18 ? -9 : 18, inward], [0, p[1] >= 0 ? -9 : 18, "middle"], [0, dyIn, "middle"], ...others(p), [dxIn, dyIn === 18 ? 32 : -23, inward], [0, p[1] >= 0 ? -23 : 32, "middle"], [side(p).dx, vert(p), side(p).anchor], [side(p).dx, vert(p) === -8 ? -22 : 30, side(p).anchor]];
+    f.byWidth(
+      500,
+      (g) => {
+        g.point(p, "");
+        // (A point on the circle's side keeps room for its text outside, beside it.)
+        const w = textWidth(text) + 12;
+        if (Math.abs(p[0] - C) > 0.6 * R) g.custom([p], blank, p[0] >= C ? { l: 0, r: w, t: 0, b: 0 } : { l: w, r: 0, t: 0, b: 0 });
+        g.custom([p], (T) => {
+          const x = T.X(p[0]), y = T.Y(p[1]), top = T.Y(R), bottom = T.Y(-R);
+          const clear = p[1] >= 0 ? [top - 8, top - 22, top - 36] : [bottom + 18, bottom + 32, bottom + 46];
+          const alts = [...near.map(([dx, dy, an]) => [x + dx, y + dy, an]), ...clear.map((yy) => [x, yy, "middle"])];
+          const t = svgText(alts[0][0], alts[0][1], text, { class: "fig-name", "text-anchor": alts[0][2] });
+          t.alts = alts;
+          return t;
+        });
+      },
+      (g) => g.point(p, text, { ...side(p), dy: vert(p), alts: others(p) }),
+    );
+  };
+  for (const [p, name] of [[X, names[0]], [Y, names[1]]]) pointText(p, `${name} (${num(p[0])}; ${num(p[1])})`);
+  f.point([C, 0], `C = ${num(C)}`, { dx: 0, dy: 16, anchor: "middle", alts: [[0, -8, "middle"], [6, 16, "start"], [-6, 16, "end"], [6, -8, "start"], [-6, -8, "end"], [0, 30, "middle"], [0, -22, "middle"]] });
+  f.point([st.s1, 0], `σ_1 = ${num(st.s1)}`, { dx: 6, dy: 16, anchor: "start", alts: [[6, -8, "start"], [6, 30, "start"], [-6, -22, "end"], [-6, 44, "end"], [6, -22, "start"], [6, 44, "start"]] });
+  f.point([st.s2, 0], `σ_2 = ${num(st.s2)}`, { dx: -6, dy: 16, anchor: "end", alts: [[-6, -8, "end"], [-6, 30, "end"], [-6, -22, "end"], [-6, 44, "end"]] });
+
   // The top of the circle; its text would sit on X's or Y's when 2α ≈ ±90°.
-  const crowded = [X, Y, ...extra.map((e) => e.p)].some((p) => Math.hypot(p[0] - C, p[1] - R) < 0.35 * R);
-  f.point([C, R], crowded ? "" : `τ_{max} = R = ${num(R)}`, { dx: 0, dy: -8, anchor: "middle" });
-  for (const e of extra) f.point(e.p, e.name, { ...side(e.p), dy: vert(e.p) });
+  const crowded = [X, Y, ...extra.map((e) => e.p)].some((p) => Math.hypot(p[0] - C, p[1] - R) < 0.55 * R);
+  f.point([C, R], crowded ? "" : `τ_{max} = R = ${num(R)}`, { dx: 0, dy: -8, anchor: "middle", alts: [[8, -8, "start"], [-8, -8, "end"], [0, -22, "middle"], [8, -22, "start"], [-8, -22, "end"]] });
+  for (const e of extra) pointText(e.p, e.name);
+
+
   return st;
 }

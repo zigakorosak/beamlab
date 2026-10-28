@@ -8,6 +8,7 @@
 // Units: p in MPa (or bar, 1 bar = 0,1 MPa), d in mm, t in mm, σ in MPa.
 
 import { ans, num, q } from "../kit.js";
+import { s } from "../../render/svg.js";
 
 const MISES_CYL = Math.sqrt(3) / 2; // σ_ekv/σ_ob for σ_aks = σ_ob/2
 
@@ -33,7 +34,7 @@ export const posoda = {
       const s1 = (pM * p.d) / (2 * p.t);
       if (p.kind === "napetosti" && (s1 < 20 || s1 > 300)) continue;
       if (p.kind === "debelina") {
-        const t = (pM * p.d) / (2 * p.sdop);
+        const t = (pM * p.d) / ((p.shape === "valj" ? 2 : 4) * p.sdop);
         if (t < 2 || t > 40) continue;
       }
       if (p.d / p.t < 20) continue;
@@ -72,7 +73,7 @@ export const posoda = {
         const F = (pM * Math.PI * p.d ** 2) / 4 / 1000;
         text = [
           `${shapeText} in debelino stene t = ${p.t} mm je pod notranjim tlakom ${pText}. ${note}`,
-          "Izračunajte napetost v steni, primerjalno napetost po von Misesu in silo, ki jo prenaša zvar po ekvatorju (polovici krogle drži skupaj).",
+          "Izračunajte napetost v steni, primerjalno napetost po von Misesu in silo, ki jo prenaša zvar po ekvatorju (zvar drži skupaj obe polovici krogle).",
         ];
         answers = [ans("s", "σ", "MPa", sAx), ans("mis", "σ_{ekv}", "MPa", sAx, { note: "von Mises" }), ans("F", "F_{zvar}", "kN", F)];
         solution = [
@@ -104,19 +105,20 @@ export const posoda = {
               "b) σ_{aks} = σ_{ob}/2 → σ_{ekv} = √(σ_{ob}² − σ_{ob}²/2 + σ_{ob}²/4) = (√3/2)·σ_{ob} = (√3/2)·p d/(2t) ≤ σ_{dop}.",
               `t ≥ (√3/2)·p d/(2σ_{dop}) = 0,866·${num(tN)} = ${num(tM)} mm.`,
             ]
-          : [`Valj: σ_{ob} = p d/(2t) ≤ σ_{dop} → t ≥ p d/(2σ_{dop}) = ${num(2 * tN)} mm — krogla potrebuje pol tanjšo steno.`]),
+          : [`Valj: σ_{ob} = p d/(2t) ≤ σ_{dop} → t ≥ p d/(2σ_{dop}) = ${num(2 * tN)} mm — krogla potrebuje za polovico tanjšo steno.`]),
         "V praksi izberemo prvo večjo standardno debelino pločevine.",
       ];
     } else {
       const pN = valj ? (2 * p.t * p.sdop) / p.d : (4 * p.t * p.sdop) / p.d;
       const pMis = valj ? pN / MISES_CYL : pN;
       const unit = p.bar ? "bar" : "MPa";
+      const inUnit = p.bar ? "barih" : "MPa";
       const k = p.bar ? 10 : 1;
       text = [
         `${shapeText} ima debelino stene t = ${p.t} mm. Dopustna napetost materiala je σ_{dop} = ${p.sdop} MPa. ${note}`,
         valj
-          ? `Določite največji dopustni notranji tlak (v ${unit}) a) po hipotezi največje normalne napetosti in b) po von Misesu.`
-          : `Določite največji dopustni notranji tlak (v ${unit}) in ga primerjajte z dopustnim tlakom valjaste posode z enakim premerom in debelino stene (σ_{ob} ≤ σ_{dop}).`,
+          ? `Določite največji dopustni notranji tlak (v ${inUnit}) a) po hipotezi največje normalne napetosti in b) po von Misesu.`
+          : `Določite največji dopustni notranji tlak (v ${inUnit}) in ga primerjajte z dopustnim tlakom valjaste posode z enakim premerom in debelino stene (σ_{ob} ≤ σ_{dop}).`,
       ];
       answers = valj ? [ans("pN", "p_{σ,max}", unit, pN * k), ans("pM", "p_{Mises}", unit, pMis * k)] : [ans("p", "p_{krogla}", unit, pN * k), ans("pv", "p_{valj}", unit, (pN / 2) * k)];
       solution = [
@@ -154,10 +156,17 @@ function drawVessel(f, p, valj) {
     };
     f.polygon(stadium(r));
     f.polygon(stadium(r - t), "fig-hole");
-    f.line([-r * 1.15, 0], [L + r * 1.15, 0], "fig-dashed");
+    // The axis, with a gap where the diameter's (upright) label crosses it.
+    f.custom([[-r * 1.15, 0], [L + r * 1.15, 0]], (T) => {
+      const y = T.Y(0), xg = T.X(L * 0.62) - 27;
+      return s("g", {}, s("line.fig-dashed", { x1: T.X(-r * 1.15), y1: y, x2: xg - 9, y2: y }), s("line.fig-dashed", { x1: xg + 9, y1: y, x2: T.X(L + r * 1.15), y2: y }));
+    });
     f.dim([L * 0.62, -r + t], [L * 0.62, r - t], `d = ${p.d} mm`, -18);
+
     f.label([L * 0.25, r], p.kind === "debelina" ? "t = ?" : `t = ${p.t} mm`, { dy: -10 });
-    f.label([L * 0.3, 0], p.kind === "tlak" ? "p = ?" : `p = ${p.bar ? num(p.p) + " bar" : q(p.p, "MPa")}`, { dy: -8 });
+    // (On a phone a long value reaches the diameter's label: further left, or under the axis.)
+    f.label([L * 0.3, 0], p.kind === "tlak" ? "p = ?" : `p = ${p.bar ? num(p.p) + " bar" : q(p.p, "MPa")}`, { dy: -8, alts: [[-24, -8, "middle"], [0, 18, "middle"], [-24, 18, "middle"]] });
+
   } else {
     f.circle([0, 0], r);
     f.circle([0, 0], r - t, "fig-hole");

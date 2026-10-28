@@ -10,6 +10,7 @@
 //                       → V = 6885,49 m³).
 
 import { ans, angleAns, deg, num, q, rad } from "../kit.js";
+import { s } from "../../render/svg.js";
 
 // ---------------------------------------------------------------------------
 
@@ -72,7 +73,7 @@ export const tezisce = {
       title: this.title,
       text: [
         `Homogen predmet, izrezan v obliki ${SHAPE_NAME[shape]} (${shape === "L" || shape === "U" ? `${flange}, nanj ${stem}` : `${stem}, na njem ${flange}`}; mere na sliki so v cm), stoji na deski. Desko počasi nagibamo; predmet ne more zdrsniti, ker ga na ${down === "L" ? "levem" : "desnem"} spodnjem robu zadržuje prislon.`,
-        `Izračunajte lego težišča${sym ? " y_T (od spodnje ploskve)" : ": x_T (od levega roba podlage) in y_T (od spodnje ploskve)"} in nagib deske α, pri katerem se predmet prevrne.`,
+        `Izračunajte lego težišča${sym ? " y_T (od spodnje ploskve)" : ": x_T (od levega roba predmeta) in y_T (od spodnje ploskve)"} in nagib deske α, pri katerem se predmet prevrne.`,
       ],
       figure(f) {
         const tilt = down === "L" ? 10 : -10;
@@ -111,11 +112,11 @@ export const tezisce = {
       },
       answers,
       solution: [
-        `Telo razdelimo na dva pravokotnika (koordinata y od spodnje ploskve${sym ? "" : ", x od levega roba podlage"}):`,
+        `Telo razdelimo na dva pravokotnika (koordinata y od spodnje ploskve${sym ? "" : ", x od levega roba predmeta"}):`,
         ...R.parts.map((c, i) => `${i + 1}: A_${i + 1} = ${num(c.A)} cm², ${sym ? "" : `x_${i + 1} = ${num(c.x)} cm, `}y_${i + 1} = ${num(c.y)} cm`),
         ...(sym ? [] : [`x_T = Σx_i·A_i/ΣA_i = ${num(R.parts.reduce((t, c) => t + c.A * c.x, 0))}/${num(R.A)} = ${num(R.xT)} cm.`]),
         `y_T = Σy_i·A_i/ΣA_i = ${num(R.parts.reduce((t, c) => t + c.A * c.y, 0))}/${num(R.A)} = ${num(R.yT)} cm.`,
-        `Predmet se prevrne okoli ${down === "L" ? "levega" : "desnega"} spodnjega roba, ko teža (navpičnica skozi težišče) pride nad ta rob. Vodoravna oddaljenost težišča od roba (v telesu): e = ${sym ? `b/2 = ${num(R.e)}` : down === "L" ? `x_T = ${num(R.e)}` : `${num(R.base)} − x_T = ${num(R.e)}`} cm.`,
+        `Predmet se prevrne okoli ${down === "L" ? "levega" : "desnega"} spodnjega roba, ko teža (navpičnica skozi težišče) pride nad ta rob. Vodoravna oddaljenost težišča od roba (v telesu): e = ${sym ? `${num(R.base)}/2 = ${num(R.e)}` : down === "L" ? `x_T = ${num(R.e)}` : `${num(R.base)} − x_T = ${num(R.e)}`} cm.`,
         `tan α = e/y_T = ${num(R.e)}/${num(R.yT)} → α = ${num(R.alpha)}°.`,
       ],
     };
@@ -190,7 +191,13 @@ export const pappus = {
         const outline = [...left, ...right];
         const yb = -0.35 * R;
         f.polygon([[-xs - ext, yb], ...outline, [xs + ext, yb]]);
-        f.dashed([0, yb - 0.2 * R], [0, 2 * R + 0.4 * R]);
+        if (b > 0) {
+          // The axis, with a gap for the bottom's dimension label (which sits on it).
+          f.custom([[0, yb - 0.2 * R], [0, 2.4 * R]], (T) => {
+            const x = T.X(0), yl = T.Y(0) - 31;
+            return s("g", {}, s("line.fig-dashed", { x1: x, y1: T.Y(yb - 0.2 * R), x2: x, y2: yl + 8 }), s("line.fig-dashed", { x1: x, y1: yl - 9, x2: x, y2: T.Y(2.4 * R) }));
+          });
+        } else f.dashed([0, yb - 0.2 * R], [0, 2 * R + 0.4 * R]);
         f.line([-xs, 2 * R], [xs, 2 * R], "fig-thin");
         f.label([0.45 * xs, 2 * R], "▽", { dy: -4 });
         // radii
@@ -199,7 +206,8 @@ export const pappus = {
         f.point(c2, "", {});
         const p1 = [b + R * Math.cos(rad(300)), R + R * Math.sin(rad(300))];
         f.line(c1, p1, "fig-thin");
-        f.label([(c1[0] + p1[0]) / 2, (c1[1] + p1[1]) / 2], "R", { dx: -10, dy: 2 });
+        f.label([(c1[0] + p1[0]) / 2, (c1[1] + p1[1]) / 2], "R", { dx: -10, dy: 2, alts: [[10, -2, "middle"]] });
+
         const p2 = [xs + R * Math.cos(rad(135)), R + R * Math.sin(rad(135))];
         f.line(c2, p2, "fig-thin");
         f.label([(c2[0] + p2[0]) / 2, (c2[1] + p2[1]) / 2], "R", { dx: 10, dy: 2 });
@@ -209,7 +217,7 @@ export const pappus = {
       },
       answers: [ans("A", "A", "m²", S.A), ans("xT", "x_T", "m", S.xT), ans("V", "V", "m³", S.V), ans("S", "S", "m²", S.S)],
       solution: [
-        `Polovico prereza vode (od osi do roba) sestavimo iz likov; e = 4R/(3π) = ${num(S.e)} m je oddaljenost težišča četrtine kroga od njegovih ravnih robov.`,
+        `Polovico prereza vode (od osi do roba) sestavimo iz likov; e = 4R/(3π) = ${num(S.e)} m je oddaljenost težišča četrtine kroga od njenih ravnih robov.`,
         ...S.parts.map((c) => `${c.name}: A_i = ${num(c.A)} m², x_i = ${num(c.x)} m, A_i·x_i = ${num(c.A * c.x)} m³`),
         `A = ΣA_i = ${num(S.A)} m², x_T = ΣA_i·x_i/A = ${num(S.Sx)}/${num(S.A)} = ${num(S.xT)} m.`,
         `Pappus–Guldin: V = 2π·x_T·A = 2π·${num(S.xT)}·${num(S.A)} = ${num(S.V)} m³.`,

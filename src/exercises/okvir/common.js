@@ -4,6 +4,7 @@
 import { ans, num, q } from "../kit.js";
 import { s } from "../../render/svg.js";
 import { dashedFibre } from "./drawFrame.js";
+import { textWidth } from "../draw.js";
 
 const near = (a, b, tol = 12) => Math.abs((((a - b) % 360) + 540) % 360 - 180) < tol;
 
@@ -62,8 +63,10 @@ export function drawFrameModel(f, model, { fu = "kN", qu = "kN/m", mu = "kNm", e
       if (horiz && text) {
         // Arrows along a column: the label beside their tails, not on them.
         const dir = Math.cos((l.angle * Math.PI) / 180) > 0 ? 1 : -1;
-        f.label(P(((l.from ?? 0) + (l.to ?? L)) / 2), text, { dx: -dir * 32, dy: 4, anchor: dir > 0 ? "end" : "start", cls: "fig-force-label" });
-        f.custom([P(0)], () => s("g"), Math.min(90, 40 + 7 * text.length));
+        // (Or, something there, further along or further out.)
+        const an = dir > 0 ? "end" : "start";
+        f.label(P(((l.from ?? 0) + (l.to ?? L)) / 2), text, { dx: -dir * 32, dy: 4, anchor: an, cls: "fig-force-label", alts: [[-dir * 32, 22, an], [-dir * 32, -14, an], [-dir * 32, 40, an], [-dir * 32, -32, an], [-dir * 44, 4, an]] });
+        f.custom([P(0)], () => s("g"), 40 + 7 * text.length);
       }
     } else if (l.type === "force") {
       const p = loadPoint(model, l);
@@ -79,15 +82,27 @@ export function drawFrameModel(f, model, { fu = "kN", qu = "kN/m", mu = "kNm", e
       const shaft = tail ? l.angle : l.angle + 180;
       const up = !dirs.some((d) => Math.sin((d * Math.PI) / 180) > 0.2 && Math.abs((((d - shaft) % 360) + 540) % 360 - 180) < 75);
       const right = Math.cos((l.angle * Math.PI) / 180) > 0;
-      f.force(p, l.angle, { label: `${l.label} = ${q(l.F, fu)}`, len: crowded ? 62 : 50, tail, labelAt: horizontal ? "side" : "end", labelSide: right === up ? 1 : -1 });
+      // A couple's arc at the same node would cross the shaft's label: a
+      // longer arrow moves the label out past the arc.
+      const withCouple = model.loads.some((o) => o.type === "moment" && l.node && o.node === l.node);
+      // (If that's on something after all — another load's label, the picture's edge — the clearest of the other places.)
+      // (A horizontal one at least as long as its label beside it, so the label clears the member at its tip.)
+      const label = `${l.label} = ${q(l.F, fu)}`;
+      const len = Math.max(withCouple ? 88 : crowded ? 62 : 50, horizontal ? textWidth(label) * 1.05 + 12 : 0);
+      f.force(p, l.angle, { label, len, tail, labelAt: "auto", prefer: horizontal ? "side" : "end", labelSide: right === up ? 1 : -1 });
+
     } else if (l.type === "moment") {
       const p = loadPoint(model, l);
       f.moment(p, l.M > 0);
       // Label on the side with fewer members leaving the node.
       const dirs = memberDirs(model, p).map((d) => Math.cos((d * Math.PI) / 180));
       const side = dirs.filter((c) => c > 0.3).length < dirs.filter((c) => c < -0.3).length ? 1 : -1;
-      f.label(p, `${l.label} = ${q(Math.abs(l.M), mu)}`, { dx: side * 24, dy: model.loads.some((o) => o.type === "force" && o.node === l.node) ? 32 : -20, anchor: side > 0 ? "start" : "end", cls: "fig-force-label" });
-      f.custom([p], () => s("g"), 70);
+      const text = `${l.label} = ${q(Math.abs(l.M), mu)}`;
+      const dy = model.loads.some((o) => o.type === "force" && o.node === l.node) ? 32 : -20;
+      const an = (sd) => (sd > 0 ? "start" : "end");
+      // (Or, a force's arrow or label there, another corner round the arc.)
+      f.label(p, text, { dx: side * 24, dy, anchor: an(side), cls: "fig-force-label", alts: [[side * 24, dy > 0 ? -20 : 32, an(side)], [-side * 24, dy, an(-side)], [-side * 24, dy > 0 ? -20 : 32, an(-side)], [side * 24, dy > 0 ? 44 : -32, an(side)]] });
+      f.custom([p], () => s("g"), 32 + 7 * text.length); // room for the label beside the arc
     }
   }
 }
@@ -139,7 +154,16 @@ export function labelNodes(f, model, { names, extra = {}, px = 15 } = {}) {
     }
     const c = Math.cos((best * Math.PI) / 180), sn = Math.sin((best * Math.PI) / 180);
     const r = model.loads.some((l) => l.type === "moment" && l.node === node) ? px + 13 : px; // clear of the moment's arc
-    f.label(p, name, { dx: c * r, dy: -sn * r + 5, anchor: c > 0.35 ? "start" : c < -0.35 ? "end" : "middle", cls: "fig-name" });
+    // (The clearest direction by angle; or, a load's label there in the picture, the next clearest.)
+    const at = (a) => {
+      const c = Math.cos((a * Math.PI) / 180), sn = Math.sin((a * Math.PI) / 180);
+      return [c * r, -sn * r + 5, c > 0.35 ? "start" : c < -0.35 ? "end" : "middle"];
+    };
+    const gapOf = (a) => (dirs.length ? Math.min(...dirs.map((d) => Math.abs((((a - d) % 360) + 540) % 360 - 180))) : 180);
+    const others = [];
+    for (let a = 0; a < 360; a += 45) if (a !== best && gapOf(a) >= 30) others.push(a);
+    others.sort((x, y) => gapOf(y) - gapOf(x));
+    f.label(p, name, { dx: c * r, dy: -sn * r + 5, anchor: c > 0.35 ? "start" : c < -0.35 ? "end" : "middle", cls: "fig-name", alts: others.map(at) });
   }
 }
 

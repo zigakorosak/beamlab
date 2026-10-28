@@ -50,6 +50,13 @@ export const palicaVrv = {
       const alpha = rnd.step(20, 70, 5);
       const R = solvePalicaVrv({ L, q: qq, q0, q1, P, xP, alpha });
       if (R.Ay < 0.15 * (R.Q + P)) continue; // keep A_y clearly non-zero
+      // On a phone the labels of P and q have no room between P's arrow and
+      // the rope when a short load has P on or beside it, or P stands on the
+      // load under a flat rope; nor q's beside the wall under the flattest
+      // rope (test/figures-layout.test.mjs).
+      if (P && q1 - q0 <= 0.45 * L && xP > q0 - 0.3 * L && xP < q1 + 0.3 * L) continue;
+      if (P && alpha <= 30 && xP >= q0 && xP <= q1) continue;
+      if (alpha <= 20 && q0 === 0 && q1 < L) continue; // (q's label: nowhere off the rope)
       return { L, q: qq, q0, q1, P, xP, alpha };
     }
   },
@@ -58,31 +65,33 @@ export const palicaVrv = {
     const { L, q: qq, q0, q1, P, xP, alpha } = p;
     const R = solvePalicaVrv(p);
     const full = q0 === 0 && q1 === L;
-    const where = full ? "po vsej dolžini" : q0 === 0 ? `na prvih ${q(q1, "m")} od A` : `na zadnjih ${q(L - q0, "m")} (ob koncu B)`;
+    const span = (d, first) => (d === 1 ? `na ${first ? "prvem" : "zadnjem"} metru` : `na ${first ? "prvih" : "zadnjih"} ${q(d, "m")}`);
+    const where = full ? "po vsej dolžini" : q0 === 0 ? `${span(q1, true)} od A` : `${span(L - q0, false)} (ob koncu B)`;
     const qText = `${where} obremenjena z enakomerno zvezno obtežbo q = ${q(qq, "kN/m")}`;
     const sa = Math.sin(rad(alpha)), ca = Math.cos(rad(alpha));
     return {
       title: this.title,
       text: [
-        `Palica AB dolžine ${q(L, "m")} je v točki A členkasto pritrjena na steno in ${qText}${P ? `, ${xP === L ? "v točki B" : `v razdalji ${q(xP, "m")} od A`} pa še s silo P = ${q(P, "kN")}` : ""}. V točki B je pritrjena vrv, ki oklepa z vodoravnico kot α = ${alpha}° in teče čez škripec C, na drugem koncu pa nanjo deluje sila F (glej sliko).`,
+        `Palica AB dolžine ${q(L, "m")} je v točki A členkasto pritrjena na steno in ${qText}${P ? `, ${xP === L ? "v točki B" : `na razdalji ${q(xP, "m")} od A`} pa še s silo P = ${q(P, "kN")}` : ""}. V točki B je pritrjena vrv, ki oklepa z vodoravnico kot α = ${alpha}° in teče čez škripec C, na drugem koncu pa nanjo deluje sila F (glej sliko).`,
         "Izračunajte jakost sile F, da bo palica stala vodoravno, ter velikosti komponent reakcije v členku A (A_x, A_y). Trenja ni, teža palice je zanemarljiva.",
       ],
       figure(f) {
         const hC = Math.min(L * 0.8 * Math.tan(rad(alpha)), 0.45 * L); // keep the figure wide (phones)
         const C = [L - hC / Math.tan(rad(alpha)), hC];
-        f.ground([0, -0.6], [0, Math.max(0.6, 0.25 * L)]);
+        f.ground([0, Math.max(0.6, 0.25 * L)], [0, -0.6]); // wall hatched on its left, away from the bar
         f.member([0, 0], [L, 0]);
         f.pin([0, 0], 0);
         f.hinge([L, 0]);
         f.point([0, 0], "A", { dx: 6, dy: 18, dot: false });
         f.point([L, 0], "B", { dx: 8, dy: 16, dot: false });
         f.dist([q0, 0], [q1, 0], { label: `q = ${q(qq, "kN/m")}` });
-        if (P) f.force([xP, 0], -90, { len: 40, label: `P = ${q(P, "kN")}`, labelAt: "end" });
+        if (P) f.force([xP, 0], -90, { len: 40, label: `P = ${q(P, "kN")}`, labelAt: "auto" });
         pulleyRope(f, [L, 0], C, alpha);
         // chained dimensions between the characteristic points, the total below
         const pts = [...new Set([0, q0, q1, P ? xP : 0, L])].sort((x, y) => x - y);
-        if (pts.length > 2) for (let i = 1; i < pts.length; i++) f.dim([pts[i - 1], 0], [pts[i], 0], q(pts[i] - pts[i - 1], "m"), 28);
-        f.dim([0, 0], [L, 0], q(L, "m"), pts.length > 2 ? 50 : 30);
+        if (pts.length > 2) f.dimChain(pts.map((x) => [x, 0]), pts.slice(1).map((x, i) => q(x - pts[i], "m")), 28);
+        // (Below a second row of the chain: a short segment's label goes there.)
+        f.dim([0, 0], [L, 0], q(L, "m"), pts.length > 2 ? 62 : 30);
       },
       answers: [ans("F", "F", "kN", R.F), ans("Ax", "A_x", "kN", R.Ax), ans("Ay", "A_y", "kN", R.Ay)],
       solution: [
@@ -118,7 +127,9 @@ function pulleyRope(f, B, C, alpha) {
     // F: rope going up from the left of the pulley.
     const len = 54;
     g.append(s("g.fig-force", {}, s("line", { x1: ex, y1: ey, x2: ex, y2: ey - len + 6 }), arrowHead(ex, ey - len, 0, -1, 10), svgText(ex - 8, ey - len + 10, "F", { class: "fig-force-label", "text-anchor": "end" })));
-    g.append(svgText(cx + 6, cy - rho - 6, "C", { class: "fig-name", "text-anchor": "start" }));
+    const cName = svgText(cx + 6, cy - rho - 6, "C", { class: "fig-name", "text-anchor": "start" });
+    cName.alts = [[cx + 6, cy - rho - 6, "start"], [cx + rho + 14, cy + 4, "start"], [cx + rho + 6, cy + rho + 14, "start"]];
+    g.append(cName);
     // α between the rope and the horizontal, marked at the pulley end (alternate angle).
     const R = 40;
     const pts = [];
@@ -126,7 +137,15 @@ function pulleyRope(f, B, C, alpha) {
       const t = (-a * i) / 12;
       pts.push(`${tx + R * Math.cos(t)},${ty - R * Math.sin(t)}`);
     }
-    g.append(s("g.fig-angle", {}, s("line", { x1: tx, y1: ty, x2: tx + R + 10, y2: ty, class: "fig-dashed" }), s("polyline", { points: pts.join(" "), fill: "none" }), svgText(tx + (R + 16) * Math.cos(a / 2), ty + (R + 16) * Math.sin(a / 2) + 4, `${alpha}°`, { class: "fig-angle-label", "text-anchor": "middle" })));
+    // The label on the bisector, out far enough to clear the rope for a small α.
+    const hw = 3.25 * (String(alpha).length + 1); // half the label's width
+    const D = Math.min(R + 30, Math.max(R + 16, (Math.max(6, hw * Math.sin(a) + 6 * Math.cos(a)) + 3) / Math.sin(a / 2)));
+
+
+    const lab = svgText(tx + D * Math.cos(a / 2), ty + D * Math.sin(a / 2) + 4, `${alpha}°`, { class: "fig-angle-label", "text-anchor": "middle" });
+    // (Or, a load's arrow there, further out, or past the dashed line's end.)
+    lab.alts = [D, D + 12, D + 24].map((d) => [tx + d * Math.cos(a / 2), ty + d * Math.sin(a / 2) + 4, "middle"]).concat([[tx + R + 14, ty + 4, "start"], [tx + R + 14, ty + 16, "start"]]);
+    g.append(s("g.fig-angle", {}, s("line", { x1: tx, y1: ty, x2: tx + R + 10, y2: ty, class: "fig-dashed" }), s("polyline", { points: pts.join(" "), fill: "none" }), lab));
     return g;
   }, 70);
 }
@@ -181,13 +200,17 @@ function dveFigure(p, f) {
   const y2 = below ? -R.h : R.h;
   const B = [L1, 0];
   const top = Math.max(0, y2), bot = Math.min(0, y2);
-  f.ground([0, bot - 0.3], [0, top + 0.3]);
+  f.ground([0, top + 0.3], [0, bot - 0.3]); // hatched on the left, behind the wall
   f.member([0, 0], B);
   f.member([0, y2], B);
   f.pin([0, 0], 0);
   f.pin([0, y2], 0);
   f.hinge(B);
-  f.label([L1 / 2, 0], "1", { dy: below ? -10 : 18 });
+  // (A rope may run just above bar 1, the angle's arc cross its middle.)
+  const o1 = below ? -10 : 18, o2 = below ? 18 : -10;
+  f.label([L1 / 2, 0], "1", { dy: o1, alts: [[0, o2, "middle"], [-24, o2, "middle"], [24, o2, "middle"], [-40, o2, "middle"], [-24, o1, "middle"], [24, o1, "middle"]] });
+
+
   f.label([L1 / 2, y2 / 2], "2", { dx: 12, dy: below ? 14 : -8 }); // beside the bar, away from the wall
   f.point(B, "B", { dx: 10, dy: below ? -12 : 18, dot: false });
   f.dim([0, top], [L1, top], q(L1, "m"), -30);

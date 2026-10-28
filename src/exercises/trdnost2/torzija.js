@@ -7,8 +7,9 @@
 // Units: M in kNm, lengths in m, diameters in mm, G in MPa, τ in MPa.
 // τ = M_T/W_T, φ = M_T·L/(G·I_T) (rad), I_T = π(D⁴ − d⁴)/32, W_T = I_T/(D/2).
 
-import { ans, deg, num, q, rad } from "../kit.js";
+import { ans, deg, num, plain, q, rad } from "../kit.js";
 import { shaft, torqueArc, wall } from "./figs.js";
+import { svgText } from "../draw.js";
 
 const G = 80000; // MPa, jeklo
 
@@ -53,6 +54,10 @@ export const torzija = {
         if (Math.abs(MB + MC) < 0.5) continue;
         if (Math.max(t1, t2) > 220 || Math.min(t1, t2) < 15) continue;
         if (phi < 0.3) continue;
+        // Opposite twists of AB and BC that nearly cancel: rounding the two
+        // terms would move φ_C by more than 5 %.
+        const ph1 = Math.abs(twist(MB + MC, L1, circle(D1, d).IT)), ph2 = Math.abs(twist(MC, L2, circle(D2, d).IT));
+        if (Math.max(ph1, ph2) > 3 * rad(phi)) continue;
         return p;
       }
     }
@@ -111,11 +116,27 @@ function buildSegments({ L1, L2, D1, D2, d, MB, MC }) {
       ]);
       wall(f, 0, D1 * k * 0.9);
       f.label([0, 0], "A", { dx: -16, dy: -30, anchor: "end" });
-      f.label([L1 / 2, -(D1 * k) / 2], d ? `D = ${D1}, d = ${d} mm` : `Ø${D1} mm`, { dy: 18 });
-      f.label([L1 + L2 / 2, -(D2 * k) / 2], d ? `D = ${D2}, d = ${d} mm` : `Ø${D2} mm`, { dy: 18 });
-      torqueArc(f, [L1, 0], (D1 * k) / 2, Math.sign(MB), `M_B = ${q(Math.abs(MB), "kNm")}`);
-      torqueArc(f, [Lt, 0], (D2 * k) / 2, Math.sign(MC), `M_C = ${q(Math.abs(MC), "kNm")}`);
-      f.label([L1, -(D1 * k) / 2], "B", { dx: -8, dy: 16, anchor: "end" });
+      // (Short segments on a phone: beside each other, or a row lower.)
+      f.label([L1 / 2, -(D1 * k) / 2], d ? `D = ${D1}, d = ${d} mm` : `Ø${D1} mm`, { dy: 18, alts: [[0, 31, "middle"], [-10, 18, "middle"], [-10, 31, "middle"]] });
+      // BC's label, wider than a short BC on a phone: right of the step, clear of B.
+      const lab2 = d ? `D = ${D2}, d = ${d} mm` : `Ø${D2} mm`, w2 = plain(lab2).length * 6.5;
+      f.custom([[L1 + L2 / 2, -(D2 * k) / 2]], (T) => {
+        const xs = T.X(L1), cx = T.X(L1 + L2 / 2), y = T.Y(-(D2 * k) / 2) + 18;
+        const t = svgText(cx, y, lab2, { class: "fig-label", "text-anchor": "middle" });
+        t.alts = [[cx, y, "middle"], [cx, y + 13, "middle"], [cx + 10, y, "middle"], [cx + 10, y + 13, "middle"]];
+        if (cx - w2 / 2 < xs + 4) t.alts.unshift([xs + 6, y, "start"], [xs + 6, y + 13, "start"]);
+        return t;
+      }, (ppm) => ({ l: w2 / 2 + 4, r: Math.max(w2 / 2, 6 + w2 - (L2 / 2) * ppm) + 4, t: 8, b: 18 + 13 + 6 }));
+      const labC = `M_C = ${q(Math.abs(MC), "kNm")}`;
+      torqueArc(f, [L1, 0], (D1 * k) / 2, Math.sign(MB), `M_B = ${q(Math.abs(MB), "kNm")}`, { avoid: [Lt, labC] });
+      torqueArc(f, [Lt, 0], (D2 * k) / 2, Math.sign(MC), labC);
+      // B under the step, or (with the diameters' labels crowding it on a phone) over it.
+      f.custom([[L1, 0]], (T) => {
+        const x = T.X(L1), yb = T.Y(-(D1 * k) / 2), yt = T.Y((D1 * k) / 2);
+        const t = svgText(x - 8, yb + 16, "B", { class: "fig-label", "text-anchor": "end" });
+        t.alts = [[x - 8, yb + 16, "end"], [x + 8, yb + 16, "start"], [x - 18, yt - 4, "end"], [x - 8, yb + 30, "end"]];
+        return t;
+      }, 34);
       f.label([Lt, 0], "C", { dx: 16, dy: 4, anchor: "start" });
       f.dim([0, -(D1 * k) / 2], [L1, -(D1 * k) / 2], `L_1 = ${q(L1, "m")}`, 42);
       f.dim([L1, -(D1 * k) / 2], [Lt, -(D1 * k) / 2], `L_2 = ${q(L2, "m")}`, 42);
@@ -201,7 +222,8 @@ function buildFixed({ L1, L2, M, D }) {
       torqueArc(f, [L1, 0], r0, 1, `M_T = ${q(M, "kNm")}`);
       f.label([0, 0], "A", { dx: -16, dy: -26, anchor: "end" });
       f.label([L, 0], "B", { dx: 16, dy: -26, anchor: "start" });
-      f.label([L1, -r0], "C", { dx: -16, dy: 18 });
+      f.label([L1, -r0], "C", { dx: -16, dy: 18, alts: [[16, 18, "middle"], [-16, 30, "middle"]] });
+
       f.dim([0, -r0], [L1, -r0], `L_1 = ${q(L1, "m")}`, 36);
       f.dim([L1, -r0], [L, -r0], `L_2 = ${q(L2, "m")}`, 36);
       f.label([L1 + L2 / 2, r0], `Ø${D} mm`, { dy: -8 });
@@ -214,10 +236,10 @@ function buildFixed({ L1, L2, M, D }) {
     ],
     solution: [
       "Enkrat statično nedoločen problem. Ravnotežje: M_A + M_B = M_T.",
-      "Kompatibilnost: zasuk C, računan od A, je enak zasuku, računanem od B: M_A L_1/(G I_T) = M_B L_2/(G I_T).",
+      "Kompatibilnost: zasuk C, računan od A, je enak zasuku, računanemu od B: M_A L_1/(G I_T) = M_B L_2/(G I_T).",
       `M_A = L_2/(L_1 + L_2)·M_T = ${num(L2)}/${num(L)}·${num(M)} = ${num(MA)} kNm,  M_B = L_1/(L_1 + L_2)·M_T = ${num(MB)} kNm.`,
       `I_T = πd⁴/32 = ${num(IT)} mm⁴, W_T = πd³/16 = ${num(WT)} mm³.`,
-      `τ_{max} = max(M_A, M_B)/W_T = ${num(Math.max(MA, MB) * 1e6)} Nmm / ${num(WT)} mm³ = ${num(tmax)} MPa (v odseku z večjim momentom, to je ${MA >= MB ? "AC" : "CB"}).`,
+      `τ_{max} = max(M_A, M_B)/W_T = ${num(Math.max(MA, MB) * 1e6)} Nmm / ${num(WT)} mm³ = ${num(tmax)} MPa (${MA === MB ? "M_A = M_B, enaka v obeh odsekih AC in CB" : `v odseku z večjim momentom, to je ${MA > MB ? "AC" : "CB"}`}).`,
       `φ_C = M_A L_1/(G I_T) = ${num(MA * 1e6)}·${num(L1 * 1e3)}/(${G}·${num(IT)}) = ${num(phiC)} rad = ${num(deg(phiC))}°.`,
     ],
   };

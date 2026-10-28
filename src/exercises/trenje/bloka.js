@@ -43,7 +43,7 @@ export const trenjeBloka = {
     const { G1, G2, f1, f2, beta } = p;
     const R = solveBloka(p);
     const fText = f1 === f2 ? `Koeficient trenja na obeh stičnih ploskvah je f = ${num(f1)}.` : `Koeficient trenja med kvadroma je f_1 = ${num(f1)}, med kvadrom 2 in tlemi pa f_2 = ${num(f2)}.`;
-    const rope = beta === 0 ? "z vodoravno vrvjo" : `z vrvjo, ki oklepa z vodoravnico kot β = ${beta}° (glej sliko)`;
+    const rope = beta === 0 ? "z vodoravno vrvjo" : `z vrvjo, ki oklepa z vodoravnico kot β = ${beta}° (glej sliko),`;
     const answers = [own(ans("S", "S", "kN", R.S))];
     if (beta) answers.push(ans("N1", "N_1", "kN", R.N1));
     answers.push(own(ans("F", "F", "kN", R.F)));
@@ -75,7 +75,7 @@ export const trenjeBloka = {
       },
       answers,
       solution: [
-        "Kvader 2 se giblje v desno (stran od stene), zato trenje na kvader 2 deluje v levo, na kvader 1 pa (zakon akcije in reakcije) v desno. Kvader 1 drži vrv.",
+        "Kvader 2 se giblje v desno (stran od stene), zato trenje na kvader 2 deluje v levo, na kvader 1 pa (zakon akcije in reakcije) v desno. Kvader 1 miruje, ker ga drži vrv.",
         beta
           ? `Kvader 1: ΣF_x = 0: T_1 − S cos β = 0; ΣF_y = 0: N_1 + S sin β − G_1 = 0; T_1 = ${F1}·N_1.`
           : `Kvader 1: ΣF_y = 0: N_1 = G_1 = ${q(G1, "kN")}; ΣF_x = 0: S = T_1 = ${F1}·N_1.`,

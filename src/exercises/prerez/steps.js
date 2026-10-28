@@ -26,8 +26,12 @@ function localLines(p, r, i, { y = true, x = false, xy = false }) {
     if (y) out.push(`I_{x${i}} = ${s}π·r⁴/4 = ${num(r.Ix)}`);
     if (x) out.push(`I_{y${i}} = ${num(r.Iy)}`);
   } else if (p.t === "semi") {
-    if (y) out.push(`I_{x${i}} = ${s}(π·r⁴/8 − A·e²), e = 4r/(3π) = ${num((4 * p.r) / (3 * Math.PI))} → ${num(r.Ix)}`);
-    if (x) out.push(`I_{y${i}} = ${s}π·r⁴/8 = ${num(r.Iy)}`);
+    // About the axis parallel to the diameter: π·r⁴/8 − A·e²; about the symmetry axis: π·r⁴/8.
+    const along = `${s}(π·r⁴/8 − A·e²), e = 4r/(3π) = ${num((4 * p.r) / (3 * Math.PI))} →`;
+    const across = `${s}π·r⁴/8 =`;
+    const flat = p.dir % 180 !== 0; // diameter horizontal (bulging up or down)
+    if (y) out.push(`I_{x${i}} = ${flat ? along : across} ${num(r.Ix)}`);
+    if (x) out.push(`I_{y${i}} = ${flat ? across : along} ${num(r.Iy)}`);
   } else if (p.t === "quarter") {
     if (y) out.push(`I_{x${i}} = I_{y${i}} = ${s}(π·r⁴/16 − A·e²) = ${num(r.Ix)}`);
   } else {

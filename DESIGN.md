@@ -54,7 +54,7 @@ src/
   ui/
     dom.js, screenKit.js, hamburgerMenu.js — copied from Anatomy Quiz
     popup.js      — centred popup (Examples), Anatomy Quiz's Subjects popup
-    home.js       — Practice / Build / How to play / Settings
+    home.js       — Practice / Izpitne naloge / Build / How to play / Settings
     gameWizard.js — task → beam type → loads → number of beams
     game.js       — Practice: stages, grading, summary
     diagramEditor.js — the player's diagram: draggable dots, grading
@@ -67,9 +67,13 @@ src/
     statika/ telo/ trenje/ nosilec/ okvir/ prerez/ napetosti/ trdnost2/
   main.js         — top-level screen router; screens may return a cleanup function
 test/
-  solver.test.mjs — 18 checks against the beam-formula tables, equilibrium, stability
+  solver.test.mjs — 24 checks against the beam-formula tables, equilibrium, stability,
+                    the printed equilibrium equations, the generator's loads, and the
+                    Practice figure: its given data (segment lengths, force angles) and,
+                    for 720 generated beams at 326 and 800 px, no text clipped or on another
   grading.test.mjs, exercises.test.mjs, ex-*.test.mjs — grading, and every exercise
                     against worked exam / course-note solutions plus random-draw physics checks
+  figures-layout.test.mjs — every exercise figure readable at phone and desktop width
 ```
 
 ### The model (`core/model.js`)
@@ -114,7 +118,8 @@ reactions named Ax, Ay, MA like on paper.
    and with consistent nodal loads (3-point Gauss, exact for cubic shape
    functions × a linear load) the nodal results are exact. A hinge node
    gets two rotation DOFs, one per side. A moment applied at a hinge goes
-   to the right side (the generator never puts one there).
+   to the right side (the generator never puts one there); the hinge's
+   equation in `explain.js` counts it on the right part too.
    Reactions: R = K·u − F at the restrained DOFs.
 2. **Stability.** Axial and bending decouple in a straight beam, so the
    two subsystems are solved apart. A zero pivot (below 1e-9 × the
@@ -150,7 +155,8 @@ Levels:
   force (30/45/60°), plus 1–2 more loads of any kind.
 
 Point loads and couples never sit on a support (they'd go straight into
-the reaction) or a hinge. Each problem is solved before it's handed out
+the reaction) or a hinge (either free end can be loaded), and distributed loads never overlap (drawn over
+each other they hide each other; two equal ones look like one). Each problem is solved before it's handed out
 and rejected if unstable or if nothing bends.
 
 ### Board layout (`render/`)
@@ -159,8 +165,14 @@ One SVG, stacked bands, all on the same x scale (`makeScale`, 72 px left
 margin for the band titles):
 
 ```
-model band (250 px): loads above the beam, supports and reactions below,
-                     dimension line with every key point
+model band (250 px): loads above the beam (an inclined force with its
+                     angle from the vertical), supports and reactions below,
+                     dimension line with every key point and every segment's
+                     length (one too long for its segment goes a row under
+                     the line, or above); every other text (loads, angles,
+                     support names, reactions, resultants) takes the first
+                     of a few places that is on the board and clear of the
+                     other texts, the arrows and the shapes (placeLabels)
 N band (170 px)      only if a force has an axial part
 V band
 M band
@@ -218,12 +230,13 @@ full solution, diagrams already done stay up (solved, faint) as help.
 
 - **Reactions**: one field per component, dashed named arrows on the beam.
   Approximate is right (`core/grading.js`): within max(5 % of the value,
-  3 % of the largest reaction, 0.05). Empty counts as 0. Enter goes to the
+  1 % of the largest reaction in the same unit, kN or kNm, 0.05). Empty counts as 0. Enter goes to the
   next field, and confirms from the last. Focusing a field (or hovering it with
   the mouse, which focuses it) selects its text, so typing replaces it; the mouse wheel over a field steps it by
   1 (Shift: 0.1). The result shows ✓ (with the exact value when the answer
   was only close), or ✗ and the right value per field, the solved reactions on the beam, the distributed loads'
-  resultants (dashed), and `equilibriumSteps`: resultants, ΣFx, ΣFy, ΣM
+  resultants (dashed; a load whose q changes sign has one per part, split
+  at q = 0), and `equilibriumSteps`: resultants, ΣFx, ΣFy, ΣM
   about the first support, "ΣM = 0" for the part right of each hinge,
   and a note on indeterminate beams.
 - **Diagrams**: a dot just left and just right of every key point (jumps),
@@ -236,8 +249,8 @@ full solution, diagrams already done stay up (solved, faint) as help.
   a touch, where focusing would pop up the keyboard. ← → ↑ ↓ work the
   same in the box. The y range is 1.3 × the true maximum, rounded up to the value
   grid; the snap step is a nice number near 1/40 of it; a dot is right
-  by the same rule as reactions (5 % of its value or 3 % of the
-  diagram's maximum), and never stricter than one snap step. After Confirm: dots
+  within max(5 % of its value, 3 % of the diagram's maximum, 0.05), and
+  never stricter than one snap step. After Confirm: dots
   green/red, the exact diagram dashed over the player's, with its labels,
   and for M the largest |M| and where.
 - One point per stage that's entirely right. Summary: "Game Over", score,
@@ -279,15 +292,43 @@ loads, couples, dimension lines, angle arcs, labels and `iso()` for 3D
 boxes. Pixel-sized decorations are closures drawn once the scale is
 known; each reserves room per side (labels by their text width), and
 `render()` settles the scale and the four margins in a few rounds, capped
-so a phone keeps most of its width for the drawing.
+so a phone keeps most of its width for the drawing (a drawing that doesn't
+fill the height or the width gives a capped side the room it needs).
+Labels given `alts` (and force labels with `labelAt: "auto"`, couples,
+angle, load and dimension labels) take the clearest place in the finished
+picture (`placeLabels()`): out of the picture is worst, then a label on
+another text (cost 40), then crossed lines (a member, rope or force's shaft
+3, a thin line 1, a line only grazing the box's edge 0.4 of that; arcs, such as a
+couple's, are followed along the curve). Text
+widths come from `textWidth()` (per kind of character, the app's font, a
+little generous). Labels with fewer places choose first, then all again,
+then one still on something may push one neighbour aside; turned labels
+(a dimension's, sliding along its line) are checked turned. `dimChain()`
+moves a label that doesn't fit out a row (up to three); `byWidth()` gives
+a phone its own layout. Frame diagrams (`okvir/drawFrame.js`) place their
+values, signs, names and titles the same way and always draw every value.
+`test/figures-layout.test.mjs` holds every figure to this: at 326 and
+728 px and the app's heights, for 200 random tasks of each exercise
+(`LAYOUT_SEEDS=1000 npm test` for a deep run), no text cut off, no two
+texts overlapping by more than 2 px, no text on a member, rope (a rope's arc
+round a pulley too), shaft, or across a circle's outline (Mohr's circle, a
+pulley, wheel or round section: `fig-rope`, `fig-body`, `fig-hole`; text
+wholly inside or outside is fine), and every N-T-M value (`data-values`) drawn.
 
 **Runner.** Topic menu grouped Statika / Trdnost in the course's order,
 plus "Poskusni izpit": one exercise per slot (1 statics, 2 N-T-M,
 3 strength), 30/35/35 points shared by the fraction of right results,
 90-minute countdown, pass mark 50 %. Answers are typed (select on focus
-or hover, wheel steps); Preveri grades them with `closeEnough` (5 % of the
-value or 3 % of the largest answer with the same unit, no absolute floor;
-angles ±1°); Rešitev shows the worked solution and the solution figure
+or hover, wheel steps); Preveri grades them with `answerOk` (`core/grading.js`):
+5 % of the answer's own value; an answer that can come out about 0
+(reactions, stress components, moment components, …) gets a `scale` from
+its module (`nearZero()` in kit.js: right within 1 % of the largest answer
+with the same unit). The registry wraps every exercise so an answer is
+exactly 0 or clearly not: dust below 1e-9 becomes 0, and a draw whose
+nonzero answer would still pass 20 % off (so as 0 or with the opposite
+sign too) is drawn again; answers with an absolute `tol` (angles,
+positions, a count) are exempt. Angles ±1° modulo `period` (360°, or 180° for the
+direction of an axis: principal stress/strain direction, α_G). Rešitev shows the worked solution and the solution figure
 (N-T-M diagrams, Mohr's circle, force triangles, …).
 
 **Topics (37).** Statika: forces at a point (F4 for equilibrium, knot on
@@ -311,6 +352,8 @@ bending + torsion.
 **Known disagreements with the sources** (the code follows the physics,
 the tests say why): the 28.1.2015 rod-on-half-cylinder solution uses
 φ = 23,39° where sin φ = 0,8/1,8 gives 26,39° (B = 109,0 N, not 111,71);
+the ladder sheet's B_x = 476,13 N is a typo for 476,31 N (its own
+f = 0,4142 = 476,31/1150);
 the course notes' torsion-spring example prints M_t = 1,179·10⁵ Nmm
 (their inputs give 1,171·10⁵); the welded-tube example uses W_T =
 π/2·(R³ − r³) (correct: π(R⁴ − r⁴)/(2R)); the notes call the moment about

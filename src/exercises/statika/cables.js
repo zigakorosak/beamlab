@@ -15,7 +15,7 @@
 // V = q·x, and S = √(H² + V²) is largest at the support farther from the
 // vertex (the higher one). A is always the left, higher support.
 
-import { ans, angleAns, deg, num, q as qty } from "../kit.js";
+import { ans, angleAns, deg, num, q as qty, rad } from "../kit.js";
 
 const VARIANTS = ["simetricna", "skripec", "sila", "visina"];
 
@@ -112,7 +112,7 @@ export const vrvParabola = {
     if (variant === "simetricna") {
       text = [
         `Vrv je vpeta med podporama A in B na enaki višini, razpetina je L = ${qty(s.l, "m")}, poves na sredini je f = ${qty(params.f, "m")}. ${common}`,
-        "Izračunajte vodoravno komponento sile v vrvi H, navpično komponento V in največjo silo v vrvi S_{max} ter kot α, ki ga vrv oklepa z vodoravnico ob podpori.",
+        "Izračunajte vodoravno komponento sile v vrvi H, navpično komponento sile ob podpori V in največjo silo v vrvi S_{max} ter kot α, ki ga vrv oklepa z vodoravnico ob podpori.",
       ];
       answers = [ans("H", "H", "N", s.H), ans("V", "V", "N", s.VA), ans("Smax", "S_{max}", "N", s.Smax), angleAns("alpha", "α", s.alphaA)];
       solution = [
@@ -206,12 +206,12 @@ function drawCable(f, params, s) {
   const A = [0, z(0)], B = [l, z(l)];
   f.polyline(pts, "fig-rope");
   f.pin(A, 270);
-  f.label(A, "A", level ? { dx: -16, dy: 4, cls: "fig-name" } : { dx: 14, dy: 12, anchor: "start", cls: "fig-name" });
+  // (Beside the rope's start; or, a steep rope there, further right or on the left.)
+  f.label(A, "A", level ? { dx: -16, dy: 4, cls: "fig-name" } : { dx: 14, dy: 12, anchor: "start", cls: "fig-name", alts: [[16, 2, "start"], [22, 14, "start"], [-12, 12, "end"]] });
   const top = Math.max(A[1], B[1]);
   const u = l / 12; // a drawing unit
-  // The load's name beside the curve, on the longer side of the vertex.
-  if (level) f.label([V + 0.3 * l, z(V + 0.3 * l)], `q = ${qty(q, "N/m")}`, { dy: -10, cls: "fig-force-label" });
-  else f.label([V, 0], `q = ${qty(q, "N/m")}`, { dy: 20, cls: "fig-force-label" });
+  // The load's name under the vertex (beside the curve, on a phone, the curve crossed it).
+  f.label([V, 0], `q = ${qty(q, "N/m")}`, { dy: 20, cls: "fig-force-label" });
   // Span on top.
   f.dim([0, top + 1.2 * u], [l, top + 1.2 * u], `${variant === "simetricna" ? "L" : "l"} = ${qty(l, "m")}`, -4);
 
@@ -227,19 +227,29 @@ function drawCable(f, params, s) {
     f.pin(B, 270);
     f.label(B, "B", variant === "sila" ? { dx: -18, dy: -6, cls: "fig-name" } : { dx: 16, dy: 4, cls: "fig-name" });
     // Horizontal guide lines at A, B and the vertex, dimensions on the left.
-    f.dashed([0, 0], [l + 2 * u, 0]);
-    f.dashed([-1.2 * u, B[1]], [l + 2 * u, B[1]]);
+    // With S_B drawn at B, the b dimension moves out of the way of its angle.
+    const bx = l + (variant === "sila" ? 3.8 : 2) * u;
+    f.dashed([0, 0], [bx, 0]);
+    f.dashed([-1.2 * u, B[1]], [bx, B[1]]);
     const hTxt = variant === "visina" ? `h = ${qty(params.h, "m")}` : "h = ?";
     const bTxt = variant === "visina" ? `b = ${qty(params.b, "m")}` : "b = ?";
-    f.dim([-1.2 * u, B[1]], [-1.2 * u, A[1]], hTxt, 14);
-    f.dim([l + 2 * u, B[1]], [l + 2 * u, 0], bTxt, 14);
+    // Like b: often small next to the drawing, so its name goes level beside the dimension.
+    f.dim([-1.2 * u, B[1]], [-1.2 * u, A[1]], "", 14);
+    f.label([-1.2 * u, (A[1] + B[1]) / 2], hTxt, { dx: 8, dy: 4, anchor: "end", cls: "fig-dim-label" }); // the dimension line is 14 px right
+
+    // b is often small next to the drawing: its name goes level beside the dimension.
+    f.dim([bx, B[1]], [bx, 0], "", 0);
+    f.label([bx, B[1] / 2], bTxt, { dx: 6, dy: 4, anchor: "start", cls: "fig-dim-label", alts: [[6, 14, "start"], [6, -6, "start"]] });
     if (variant === "sila") {
-      const ang = params.alpha;
       // Values in the text; the sketch names them (like the exam's S, α).
-      f.force(B, ang, { tail: true, world: 2 * u, label: "S_B", labelAt: "end" });
-      f.dashed(B, [l + 2.2 * u, B[1]]);
+      // Along the drawn cable's tangent at B (heights may be exaggerated by k).
+      const ang = deg(Math.atan(k * Math.tan((params.alpha * Math.PI) / 180)));
+      // (A short arrow on a phone: its name and the angle's find room round it.)
+      f.force(B, ang, { tail: true, world: 2 * u, label: "S_B", labelAt: "auto" });
       f.angle(B, 0, ang, "", 40);
-      f.label([l + 2.2 * u, B[1]], "α_B", { dx: 4, dy: 18, anchor: "end", cls: "fig-angle-label" });
+      const mid = rad(ang / 2);
+      const at = (r) => [r * Math.cos(mid), 4 - r * Math.sin(mid), "start"];
+      f.label(B, "α_B", { dx: 54 * Math.cos(mid), dy: 4 - 54 * Math.sin(mid), anchor: "start", cls: "fig-angle-label", alts: [at(66), at(80), [48, 16, "start"]] });
     }
   }
 }
@@ -252,11 +262,13 @@ function drawPulley(f, B, u, label) {
   f.hinge(c);
   // Bracket to a wall on the right.
   f.member(c, [c[0] + 1.5 * r + 0.6 * u, c[1]]);
-  f.ground([c[0] + 1.5 * r + 0.6 * u, c[1] + 0.8 * u], [c[0] + 1.5 * r + 0.6 * u, c[1] - 0.8 * u]);
+  // Drawn upwards, so the hatch (right of a→b) is behind the wall, not on the pulley's side.
+  f.ground([c[0] + 1.5 * r + 0.6 * u, c[1] - 0.8 * u], [c[0] + 1.5 * r + 0.6 * u, c[1] + 0.8 * u]);
   const yW = c[1] - 3 * u;
   f.line([c[0] + r, c[1]], [c[0] + r, yW + 0.6 * u]);
   f.rect(c[0] + r - 0.4 * u, yW - 0.2 * u, 0.8 * u, 0.8 * u);
   f.bounds([[c[0] + r + 3 * u, yW]]); // room for the label
   f.label([c[0] + r + 0.4 * u, yW + 0.2 * u], label, { dx: 8, dy: 4, anchor: "start", cls: "fig-force-label" });
-  f.label(B, "B", { dx: -2, dy: -14, cls: "fig-name" });
+  f.label(B, "B", { dx: -2, dy: -14, cls: "fig-name", alts: [[-14, -8, "end"], [-12, 10, "end"]] });
+
 }

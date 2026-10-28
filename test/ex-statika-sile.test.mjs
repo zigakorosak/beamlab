@@ -133,3 +133,20 @@ test("cable: random tasks satisfy the parabola at both supports", () => {
     for (const a of ex.answers) assert.ok(Number.isFinite(a.value) && a.value > 0, `${p.variant}: ${a.key}`);
   }
 });
+
+test("F4: the angle is never next to 0°/360° (no wrap-around in grading)", async () => {
+  const { sileF4 } = await import("../src/exercises/statika/concurrent.js");
+  const r = rng(21);
+  for (let i = 0; i < 1000; i++) {
+    const phi = answer(sileF4.build(sileF4.generate(r)), "phi");
+    assert.ok(phi > 2 && phi < 358, String(phi));
+  }
+});
+
+test("2D reduction: x_0 is never within 0,5 m of O (5 % of it would be millimetres)", () => {
+  const r = rng(13);
+  for (let i = 0; i < 2000; i++) {
+    const x0 = answer(redukcija2d.build(redukcija2d.generate(r)), "x0");
+    assert.ok(Math.abs(x0) >= 0.5 && Math.abs(x0) <= 30, String(x0));
+  }
+});

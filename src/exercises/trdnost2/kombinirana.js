@@ -11,6 +11,7 @@
 
 import { ans, num, q } from "../kit.js";
 import { intoPage, torqueArc, wall } from "./figs.js";
+import { svgText } from "../draw.js";
 
 /** W [mm³] of a solid (d = 0) or hollow circle. */
 export function wBend(D, d = 0) {
@@ -153,7 +154,15 @@ function drawArm(f, p) {
   intoPage(f, [L, -a], true, `F = ${q(p.F, "kN")}`, { dx: -14, dy: 22 });
   f.dim([0, 0], [L, 0], `L = ${q(L, "m")}`, -28);
   f.dim([L, 0], [L, -a], `a = ${q(a * 100, "cm")}`, -30);
-  f.label([L / 2, 0], "tloris (pogled od zgoraj)", { dy: 34 });
+  // Under AB, or (F's label in the way on a phone) from A on, or (a long
+  // arm BC through it) left of the arm.
+  f.custom([[L / 2, 0]], (T) => {
+    const y = T.Y(0) + 34;
+    const t = svgText(T.X(L / 2), y, "tloris (pogled od zgoraj)", { class: "fig-label", "text-anchor": "middle" });
+    const xl = T.X(L) - 12, ym = (T.Y(0) + T.Y(-a)) / 2 + 4;
+    t.alts = [[T.X(L / 2), y, "middle"], [T.X(0) + 4, y, "start"], [xl, ym, "end"], [xl, ym + 20, "end"], [xl, ym - 20, "end"]];
+    return t;
+  }, { l: 82, r: 82, t: 8, b: 38 });
 }
 
 function drawPulley(f, p) {
@@ -163,24 +172,29 @@ function drawPulley(f, p) {
   f.pin([0, 0]);
   f.roller([L, 0]);
   f.label([0, 0], "A", { dx: -12, dy: -8, anchor: "end" });
-  f.label([L, 0], "B", { dx: -6, dy: -12, anchor: "end" });
+  f.label([L, 0], "B", { dx: -6, dy: -12, anchor: "end", alts: [[-6, -26, "end"], [-16, 16, "end"]] });
   // Pulley seen from the side: a thin disc.
   f.rect(a - 0.04, -Rw, 0.08, 2 * Rw);
   f.force([a, -Rw], -90, { tail: true, len: 40, label: "S_1 + S_2", labelSide: -1 });
   torqueArc(f, [L + 0.18, 0], 0.03, 1, "");
-  f.label([L + 0.18, 0], "sklopka", { dy: 40, cls: "fig-force-label" });
+  // (Alternatives clear of the support's hatching.)
+  f.label([L + 0.18, 0], "sklopka", { dy: 40, cls: "fig-force-label", alts: [[10, 40, "start"], [-14, 44, "end"], [0, -26, "middle"], [10, -26, "start"], [0, -40, "middle"], [6, -26, "middle"]] });
   f.line([L, 0], [L + 0.18, 0], "fig-rope");
   f.dim([0, Rw], [a, Rw], `a = ${q(a * 100, "cm")}`, -14);
   f.dim([0, Rw], [L, Rw], `L = ${q(L, "m")}`, -40);
-  // End view of the pulley, to the right.
-  const c = [L + 0.55 + Rw, 0];
-  f.circle(c, Rw);
-  f.point(c, "", { dot: true });
-  f.line([c[0] - Rw, 0], [c[0] - Rw, -Rw * 0.9], "fig-rope");
-  f.line([c[0] + Rw, 0], [c[0] + Rw, -Rw * 0.9], "fig-rope");
-  f.force([c[0] - Rw, -Rw * 0.9], -90, { tail: true, len: 30, label: "S_1", labelAt: "end" });
-  f.force([c[0] + Rw, -Rw * 0.9], -90, { tail: true, len: 30, label: "S_2", labelAt: "end" });
-  f.line(c, [c[0] + Rw * 0.7071, Rw * 0.7071], "fig-thin");
-  f.label([c[0] + Rw * 0.7071, Rw * 0.7071], "R", { dx: 6, dy: -4, anchor: "start" });
-  f.label([c[0], Rw], "pogled vzdolž osi", { dy: -14 });
+  // End view of the pulley, to the right (on a phone a little further:
+  // "sklopka" over the coupling between them ran onto the pulley).
+  const endView = (gap) => (g) => {
+    const c = [L + gap + Rw, 0];
+    g.circle(c, Rw);
+    g.point(c, "", { dot: true });
+    g.line([c[0] - Rw, 0], [c[0] - Rw, -Rw * 0.9], "fig-rope");
+    g.line([c[0] + Rw, 0], [c[0] + Rw, -Rw * 0.9], "fig-rope");
+    g.force([c[0] - Rw, -Rw * 0.9], -90, { tail: true, len: 30, label: "S_1", labelAt: "end" });
+    g.force([c[0] + Rw, -Rw * 0.9], -90, { tail: true, len: 30, label: "S_2", labelAt: "end" });
+    g.line(c, [c[0] + Rw * 0.7071, Rw * 0.7071], "fig-thin");
+    g.label([c[0] + Rw * 0.7071, Rw * 0.7071], "R", { dx: 6, dy: -4, anchor: "start" });
+    g.label([c[0], Rw], "pogled vzdolž osi", { dy: -14, alts: [[0, -28, "middle"]] }); // (higher: "sklopka" below it)
+  };
+  f.byWidth(500, endView(Math.max(0.55, 0.18 + 0.18 * (L + 2 * Rw + 0.5))), endView(0.55));
 }

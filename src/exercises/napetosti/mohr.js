@@ -8,7 +8,7 @@
 //                   the stresses in the x, y frame.
 // Formulas and signs: see element.js.
 
-import { ans, angleAns, num, rad } from "../kit.js";
+import { ans, nearZero, angleAns, num, rad } from "../kit.js";
 import { alphaSteps, mohrCircle, par, planeStress, stressElement } from "./element.js";
 
 const CONV = "Dogovor: natezne napetosti so pozitivne; τ_{xy} je pozitivna, če na ploskvi z normalo +x kaže v smeri +y (na ploskvi z normalo +y pa v smeri +x).";
@@ -21,7 +21,9 @@ function planeSketch(f, phi, h = 1) {
   f.line([-k * Math.cos(t), -k * Math.sin(t)], [k * Math.cos(t), k * Math.sin(t)], "fig-rope");
   f.dashed([0, 0], [0.9 * h, 0]);
   f.force([0, 0], phi, { tail: true, world: 0.8 * h, cls: "fig-axis" });
-  f.label([0.95 * h * Math.cos(rad(phi)), 0.95 * h * Math.sin(rad(phi))], "n", { dx: Math.cos(rad(phi)) > 0 ? -10 : 10, dy: 4, cls: "fig-name" });
+  const sn = Math.cos(rad(phi)) > 0 ? -10 : 10;
+  f.label([0.95 * h * Math.cos(rad(phi)), 0.95 * h * Math.sin(rad(phi))], "n", { dx: sn, dy: 4, cls: "fig-name", alts: [[-sn, 4, "middle"], [sn, 16, "middle"], [-sn, 16, "middle"]] });
+
   f.angle([0, 0], 0, phi, "φ", 22);
 }
 
@@ -54,28 +56,31 @@ export const mohr = {
       title: this.title,
       text: [
         "V točki stene je znano ravninsko napetostno stanje, ki ga kaže slika (velikosti napetosti so v MPa, puščice kažejo dejanske smeri napetosti).",
-        `Določite glavni napetosti σ_1 ≥ σ_2, ${ALPHA}, največjo strižno napetost τ_{max} ter normalno in strižno napetost σ_N, τ_N na ravnini, katere normala n oklepa z osjo x kot φ = ${phi}° (v nasprotni smeri urinega kazalca). Narišite Mohrov krog.`,
+        `Določite glavni napetosti σ_1 ≥ σ_2, ${ALPHA}, največjo strižno napetost τ_{max} v ravnini x, y ter normalno in strižno napetost σ_N, τ_N na ravnini, katere normala n oklepa z osjo x kot φ = ${phi}° (v nasprotni smeri urinega kazalca). Narišite Mohrov krog.`,
         `${CONV} τ_N je pozitivna v smeri normale n, zasukane za +90°.`,
       ],
       figure(f) {
         stressElement(f, { sx, sy, txy, labels: { sx: num(Math.abs(sx)), sy: num(Math.abs(sy)), txy: num(Math.abs(txy)) } });
         planeSketch(f, phi);
       },
-      answers: [
-        ans("s1", "σ_1", "MPa", st.s1),
-        ans("s2", "σ_2", "MPa", st.s2),
-        angleAns("alpha", "α", st.alpha, { note: "smer σ₁ od osi x, −90° < α ≤ 90°" }),
-        ans("tmax", "τ_{max}", "MPa", st.R),
-        ans("sN", "σ_N", "MPa", sN),
-        ans("tN", "τ_N", "MPa", tN),
-      ],
+      answers: nearZero(
+        [
+          ans("s1", "σ_1", "MPa", st.s1),
+          ans("s2", "σ_2", "MPa", st.s2),
+          angleAns("alpha", "α", st.alpha, { period: 180, note: "smer σ₁ od osi x, −90° < α ≤ 90°" }),
+          ans("tmax", "τ_{max}", "MPa", st.R),
+          ans("sN", "σ_N", "MPa", sN),
+          ans("tN", "τ_N", "MPa", tN),
+        ],
+        ["s1", "s2", "sN", "tN"],
+      ),
       solution: [
         `S slike: σ_x = ${num(sx)} MPa (${dir(sx, "nateg", "tlak")}), σ_y = ${num(sy)} MPa (${dir(sy, "nateg", "tlak")}), τ_{xy} = ${num(txy)} MPa (na desni ploskvi kaže ${txy > 0 ? "navzgor" : "navzdol"}).`,
         `Središče in polmer Mohrovega kroga: C = (σ_x + σ_y)/2 = ${num(st.C)} MPa, R = √(((σ_x − σ_y)/2)² + τ_{xy}²) = √(${par((sx - sy) / 2)}² + ${par(txy)}²) = ${num(st.R)} MPa.`,
         `Glavni napetosti: σ_1 = C + R = ${num(st.s1)} MPa, σ_2 = C − R = ${num(st.s2)} MPa.`,
         ...alphaSteps(sx, sy, txy),
         `Smer σ_2 je pravokotna: α_2 = ${num(a2)}°.`,
-        `Največja strižna napetost: τ_{max} = R = (σ_1 − σ_2)/2 = ${num(st.R)} MPa, na ravninah pri α ± 45°, kjer je normalna napetost σ̄ = C = ${num(st.C)} MPa.`,
+        `Največja strižna napetost v ravnini x, y: τ_{max} = R = (σ_1 − σ_2)/2 = ${num(st.R)} MPa, na ravninah pri α ± 45°, kjer je normalna napetost σ̄ = C = ${num(st.C)} MPa.${st.s1 * st.s2 > 0 ? ` (Če upoštevamo še σ_3 = 0 pravokotno na ravnino x, y, je absolutno največja strižna napetost (σ_{max} − σ_{min})/2 = ${num(Math.max(Math.abs(st.s1), Math.abs(st.s2)) / 2)} MPa.)` : ""}`,
         `Poševna ravnina, φ = ${phi}° (2φ = ${2 * phi}°):`,
         `σ_N = (σ_x + σ_y)/2 + (σ_x − σ_y)/2·cos 2φ + τ_{xy}·sin 2φ = ${num(st.C)} + ${par((sx - sy) / 2)}·${par(Math.cos(rad(2 * phi)))} + ${par(txy)}·${par(Math.sin(rad(2 * phi)))} = ${num(sN)} MPa`,
         `τ_N = −(σ_x − σ_y)/2·sin 2φ + τ_{xy}·cos 2φ = −${par((sx - sy) / 2)}·${par(Math.sin(rad(2 * phi)))} + ${par(txy)}·${par(Math.cos(rad(2 * phi)))} = ${num(tN)} MPa`,
@@ -98,7 +103,8 @@ export const mohrInverzna = {
     for (;;) {
       const s1 = r.step(-40, 120, 10);
       const s2 = r.step(-100, 80, 10);
-      if (s1 - s2 < 30) continue;
+      // A zero principal stress would be drawn as an arrow labelled "= 0".
+      if (s1 - s2 < 30 || s1 === 0 || s2 === 0) continue;
       if (r.chance(0.55)) {
         const alpha = r.step(-75, 75, 5);
         if (Math.abs(alpha) < 15) continue;
@@ -136,7 +142,7 @@ export const mohrInverzna = {
           f.dashed([0, 0], [Math.cos(rad(alpha)), Math.sin(rad(alpha))]);
           f.angle([0, 0], 0, alpha, `α = ${num(alpha)}°`, 34);
         },
-        answers: [ans("sx", "σ_x", "MPa", sx), ans("sy", "σ_y", "MPa", sy), ans("txy", "τ_{xy}", "MPa", txy)],
+        answers: nearZero([ans("sx", "σ_x", "MPa", sx), ans("sy", "σ_y", "MPa", sy), ans("txy", "τ_{xy}", "MPa", txy)], ["sx", "sy"]),
         solution: [
           ...base,
           `Točka X(σ_x; τ_{xy}) leži na krogu pod kotom 2α = ${num(2 * alpha)}° od smeri σ_1 (v Mohrovem krogu je kot podvojen):`,
@@ -166,7 +172,7 @@ export const mohrInverzna = {
         stressElement(f, { txy, labels: { txy: num(Math.abs(txy)) } });
         f.label([0, 0], "σ_x, σ_y = ?", { dy: 4, cls: "fig-name" });
       },
-      answers: [ans("sx", "σ_x", "MPa", sx), ans("sy", "σ_y", "MPa", sy), angleAns("alpha", "α", st.alpha, { note: "smer σ₁ od osi x, −90° < α ≤ 90°" })],
+      answers: nearZero([ans("sx", "σ_x", "MPa", sx), ans("sy", "σ_y", "MPa", sy), angleAns("alpha", "α", st.alpha, { period: 180, note: "smer σ₁ od osi x, −90° < α ≤ 90°" })], ["sx", "sy"]),
       solution: [
         ...base,
         "Ker je R² = ((σ_x − σ_y)/2)² + τ_{xy}² in σ_x ≥ σ_y:",

@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rng } from "../src/exercises/kit.js";
+import { answerOk } from "../src/core/grading.js";
 import { planeStress } from "../src/exercises/napetosti/element.js";
 import { mohr, mohrInverzna } from "../src/exercises/napetosti/mohr.js";
 import { posevniPrerez } from "../src/exercises/napetosti/posevni.js";
@@ -240,4 +241,69 @@ test("napetosti: every task has 2–6 answers, all finite, and a figure", () => 
       assert.ok(!ex.solution.join(" ").includes("NaN"), gen.id);
     });
   }
+});
+
+test("napetosti: draws stay realistic — Hooke below yield, glue joint stresses like the exams", () => {
+  many(hookePalice, 600, (p, ex) => {
+    const keys = p.kind === "cev" ? [["ss", 240], ["sa", 150]] : [["s1", 240], ["s2", 240]];
+    for (const [k, lim] of keys) assert.ok(Math.abs(answer(ex, k)) <= lim + 1e-9, `${p.kind} ${k} = ${answer(ex, k)}`);
+  });
+  many(posevniPrerez, 600, (p, ex) => {
+    if (p.kind === "napetosti") assert.ok(Math.abs(answer(ex, "sx")) >= 0.3 - 1e-9 && Math.abs(answer(ex, "sx")) <= 6 + 1e-9);
+  });
+});
+
+test("napetosti: solution wording — strains check ε_N, Tresca with both principal stresses compressive", () => {
+  const g = deformacijeNapetosti.build({ kind: "merjene", a: 200, ex: -5, ey: 2, g: 3 }).solution.join("\n");
+  assert.ok(g.includes("ε_N(α)") && !g.includes("σ_N(α)"));
+  // σx = −90, σy = −40, τ = 20: σ1 ≈ −32,4 < 0 → σ_ekv,Tresca = 0 − σ2 = 97,6
+  const ex = hipoteze.build({ kind: "ravninsko", sx: -90, sy: -40, txy: 20, sdop: 140 });
+  near(answer(ex, "T"), -answer(ex, "s2"));
+  assert.ok(ex.solution.join("\n").includes("obe glavni napetosti sta tlačni"));
+});
+
+test("napetosti: near-zero scales stay tight — σ = N/A follows N's scale, no scale without cancellation", () => {
+  const scaleOf = (ex, key) => ex.answers.find((a) => a.key === key).scale;
+  // Clamped bar: σ scale = (scale of N)/A, so a small σ isn't graded against the other part's large σ.
+  many(hookePalice, 600, (p, ex) => {
+    if (p.kind === "vpeta" && !p.dT) {
+      // No heating: N₁, N₂, σ, u are products (no cancellation), each graded to its own 5 %.
+      for (const k of ["N1", "N2", "s1", "s2", "u"]) assert.equal(scaleOf(ex, k), undefined, k);
+    } else if (p.kind === "vpeta") {
+      const sN = scaleOf(ex, "N1");
+      near(scaleOf(ex, "s1"), (sN / p.A1) * 10, 1e-9);
+      near(scaleOf(ex, "s2"), (sN / p.A2) * 10, 1e-9);
+    } else if (p.kind === "stopnicasta") {
+      for (const k of ["N1", "N2", "s1", "s2"]) assert.equal(scaleOf(ex, k), undefined, k);
+    }
+  });
+  // A1 = 18, A2 = 3, F = 90 kN, no heating: N2 = −3,6 kN must not accept −4,4 kN (N1 = 86,4).
+  const v = hookePalice.build({ kind: "vpeta", A1: 18, A2: 3, L1: 0.5, L2: 2, F: 90, dT: 0 });
+  near(answer(v, "N2"), -3.6);
+  assert.equal(answerOk(-4.4, v.answers.find((a) => a.key === "N2")), false);
+  // e.g. N1 = 5 kN, A1 = 15 cm², N2 = 60 kN on 3 cm²: σ1 = 3,333 MPa must not accept 2 MPa.
+  const st = hookePalice.build({ kind: "stopnicasta", A1: 15, A2: 3, L1: 1, L2: 1, F1: -55, F2: 60 });
+  assert.equal(answerOk(2, st.answers.find((a) => a.key === "s1")), false);
+  // τxy = R·sin 2α and τxy = 2G·ε_xy are never about 0: own 5 %.
+  assert.equal(scaleOf(mohrInverzna.build({ kind: "kot", s1: 120, s2: 90, alpha: 15 }), "txy"), undefined);
+  assert.equal(scaleOf(deformacijeNapetosti.build({ kind: "tenzor", ex: 6, ey: 6, ez: 4, exy: 1, E: 2.1e5, nu: 0.3 }), "txy"), undefined);
+});
+
+test("hooke-palice: ΔL of the stepped bar and the heated bar's u don't nearly cancel", () => {
+  many(hookePalice, 1500, (p, ex) => {
+    const a = ex.answers.find((x) => x.key === (p.kind === "stopnicasta" ? "dL" : "u"));
+    if (!a || a.scale === undefined) return;
+    // the near-zero tolerance (3 % of the terms) stays within 20 % of the answer
+    assert.ok(0.03 * a.scale <= 0.2 * Math.abs(a.value) + 1e-12, `${JSON.stringify(p)} ${a.key} = ${a.value}, scale ${a.scale}`);
+  });
+});
+
+test("mohr: τ_max is the in-plane one (R); with σ1, σ2 of one sign the solution names the absolute one", () => {
+  // σx = 40, σy = 50, τ = −30: σ1 = 75,41, σ2 = 14,59 → R = 30,41, but with σ3 = 0 the absolute τ is 37,71.
+  const ex = mohr.build({ sx: 40, sy: 50, txy: -30, phi: 105 });
+  near(answer(ex, "tmax"), 30.414, 0.001);
+  assert.ok(ex.text.join(" ").includes("τ_{max} v ravnini x, y"));
+  assert.ok(ex.solution.join("\n").includes("absolutno največja strižna napetost (σ_{max} − σ_{min})/2 = 37,71 MPa"));
+  // σ1 > 0 > σ2: R is also the absolute maximum, no note.
+  assert.ok(!mohr.build({ sx: 50, sy: -10, txy: 30, phi: 45 }).solution.join("\n").includes("absolutno"));
 });

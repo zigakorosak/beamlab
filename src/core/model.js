@@ -60,6 +60,27 @@ export function distResultant(load) {
 }
 
 /**
+ * A distributed load from `from` on, as pieces with their resultants. A load
+ * whose q changes sign is split where q = 0: each piece's resultant then sits
+ * on the piece (a whole one could be 0, or off the part right of a hinge).
+ */
+export function distPieces(l, from = l.x1) {
+  const q = (x) => l.q1 + ((l.q2 - l.q1) * (x - l.x1)) / (l.x2 - l.x1);
+  const a = Math.max(l.x1, from);
+  const cuts = [a];
+  if (q(a) * l.q2 < 0) cuts.push(a + ((l.x2 - a) * q(a)) / (q(a) - l.q2));
+  cuts.push(l.x2);
+  const out = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    const qa = i > 0 ? 0 : q(cuts[i]);
+    const qb = i < cuts.length - 2 ? 0 : l.q2;
+    const p = { x1: cuts[i], x2: cuts[i + 1], q1: qa, q2: qb };
+    if (p.x2 - p.x1 > 1e-9 && (qa || qb)) out.push({ load: p, ...distResultant(p) });
+  }
+  return out;
+}
+
+/**
  * Support names: A, B, C … from left to right, the way a textbook letters
  * them. Returns Map(supportId → letter).
  */

@@ -49,8 +49,8 @@ function randomShape(r, shape) {
       return [2 * tw + i(2, 12), i(1, 4), tw, i(3, 12)];
     }
     case "C": {
-      const tf = i(1, 3);
-      return [2 * tf + i(4, 16), i(1, 4), i(4, 10), tf];
+      const tf = i(1, 3), tw = i(1, 4);
+      return [2 * tf + i(4, 16), tw, tw + i(2, 7), tf]; // flanges stick out ≥ 2 cm
     }
     case "rectSemi":
       return [2 * i(2, 6), i(3, 12)];
@@ -65,8 +65,11 @@ function randomShape(r, shape) {
       return [2 * t + i(4, 14), t + i(3, 10), t + i(3, 10), t];
     }
     case "rectHole": {
-      const b = i(8, 20), h = i(8, 20), d = 2 * i(1, 3);
-      const cx = i(d / 2 + 1, b - d / 2 - 1), cy = i(d / 2 + 1, h - d / 2 - 1);
+      // A large hole near a corner: a small hole near the middle gives an
+      // I_xy too small for a clear principal direction.
+      const b = i(10, 20), h = i(10, 20), d = 2 * i(2, Math.floor(Math.min(b, h) / 4));
+      const cx = r.chance(0.5) ? d / 2 + i(1, 2) : b - d / 2 - i(1, 2);
+      const cy = r.chance(0.5) ? d / 2 + i(1, 2) : h - d / 2 - i(1, 2);
       return [b, h, d, cx, cy];
     }
     case "rectTri": {
@@ -83,17 +86,16 @@ export const prerezKarakteristike = {
   desc: "Težišče, I_x, I_y, I_xy (Steiner) in glavni vztrajnostni momenti",
 
   generate(r) {
+    // The shape first, then redraw only its sizes: every shape keeps its
+    // share however often its draws are rejected.
+    const sym = r.chance(0.5);
+    const shape = r.pick(sym ? SYM : NONSYM);
     for (;;) {
-      const sym = r.chance(0.5);
-      const shape = r.pick(sym ? SYM : NONSYM);
       const p = { shape, a: randomShape(r, shape) };
       const P = sectionProps(makeSection(p));
       if (!(P.A > 0)) continue;
-      if (!sym) {
-        // A clear principal direction, away from the ±45° ends of the range.
-        if (Math.abs(P.alpha) > 40 || Math.abs(P.Ixy) < 0.04 * P.I1 || P.I1 - P.I2 < 0.1 * P.I1) continue;
-        if (shape === "rectHole" && (Math.abs(P.xT - p.a[0] / 2) < 0.05 || Math.abs(P.yT - p.a[1] / 2) < 0.05)) continue;
-      }
+      // A clear principal direction, away from the ±45° ends of the range.
+      if (!sym && (Math.abs(P.alpha) > 40 || Math.abs(P.Ixy) < 0.04 * P.I1 || P.I1 - P.I2 < 0.1 * P.I1)) continue;
       return p;
     }
   },
@@ -126,22 +128,22 @@ export const prerezKarakteristike = {
           ans("Ixy", "I_{xy}", "cm⁴", P.Ixy),
           ans("I1", "I_1", "cm⁴", P.I1),
           ans("I2", "I_2", "cm⁴", P.I2),
-          angleAns("alpha", "α_G", P.alpha, { note: "med −45° in 45°" }),
+          angleAns("alpha", "α_G", P.alpha, { period: 180, note: "med −45° in 45°" }),
         ];
 
     const solution = sectionLines(sec, P, { x: true, xy: true });
     if (sym) {
       solution.push(
-        `Prerez ima simetrijsko os, zato je težiščni I_{xy} = 0 (os x ali y v težišču je glavna os).`,
+        `Prerez ima simetrijsko os, zato je težiščni I_{xy} = 0 (težiščni osi x in y sta glavni osi).`,
         `Glede na osi skozi O (Steiner nazaj): I_{xy,O} = I_{xy} − x_T·y_T·A = 0 − ${num(P.xT)}·${num(P.yT)}·${num(P.A)} = ${num(P.IxyO)} cm⁴.`,
-        `Pozor na predznak: zapiski uporabljajo I_{xy} = −∫xy dA. Nekatere stare rešitve računajo +ΣA_i·x_i·y_i (= +∫xy dA) in dobijo ${num(-P.IxyO)} cm⁴ — isti znesek, nasproten predznak.`,
+        `Pozor na predznak: zapiski uporabljajo I_{xy} = −∫xy dA. Nekatere stare rešitve računajo +ΣA_i·x_i·y_i (= +∫xy dA) in dobijo ${num(-P.IxyO)} cm⁴ — enaka absolutna vrednost, nasproten predznak.`,
         `Za kontrolo: I_{x,O} = I_x + y_T²·A = ${num(P.IxO)} cm⁴, I_{y,O} = I_y + x_T²·A = ${num(P.IyO)} cm⁴, I_p = I_x + I_y = ${num(P.Ip)} cm⁴.`,
       );
     } else {
       const avg = (P.Ix + P.Iy) / 2;
       const Rm = (P.I1 - P.I2) / 2;
       solution.push(
-        `tan 2α_G = 2I_{xy}/(I_x − I_y) = 2·${num(P.Ixy)}/(${num(P.Ix)} − ${num(P.Iy)}) = ${num((2 * P.Ixy) / (P.Ix - P.Iy))} → α_G = ${num(P.alpha)}°`,
+        `tan 2α_G = 2I_{xy}/(I_x − I_y) = 2·${P.Ixy < 0 ? `(${num(P.Ixy)})` : num(P.Ixy)}/(${num(P.Ix)} − ${num(P.Iy)}) = ${num((2 * P.Ixy) / (P.Ix - P.Iy))} → α_G = ${num(P.alpha)}°`,
         `I_{1,2} = (I_x + I_y)/2 ± √(((I_x − I_y)/2)² + I_{xy}²) = ${num(avg)} ± ${num(Rm)} → I_1 = ${num(P.I1)} cm⁴, I_2 = ${num(P.I2)} cm⁴`,
         `Katera os je katera: I_u(α_G) = (I_x + I_y)/2 + (I_x − I_y)/2·cos 2α_G + I_{xy}·sin 2α_G = ${num(P.Iu((P.alpha * Math.PI) / 180))} cm⁴, torej je os, zasukana za α_G, os ${P.alphaIsMax ? "1 (največji moment)" : "2 (najmanjši moment); os 1 je pravokotna nanjo"}.`,
         `Kontrola: I_1 + I_2 = I_x + I_y = ${num(P.Ip)} cm⁴.`,
@@ -159,7 +161,22 @@ export const prerezKarakteristike = {
       solutionFigure(f) {
         drawSection(f, sec, { dims: false, parts: true, centroid: true, props: P, principalAxes: !sym });
         const b = bbox(sec);
-        f.label([b.x0, b.y0], `T: x_T = ${num(P.xT)} cm, y_T = ${num(P.yT)} cm`, { dy: 34, anchor: "start" });
+        // Below the end of the centroidal axis (drawSection extends it by 18 % of the size).
+        const ext = 0.18 * Math.max(b.x1 - b.x0, b.y1 - b.y0);
+        // ...and below the principal axes' ends too (they'd run through it).
+        let low = b.y0 - ext;
+        if (!sym) {
+          const len = 0.62 * Math.max(b.x1 - b.x0, b.y1 - b.y0);
+          for (const a of [P.alphaMax, P.alphaMax + 90]) {
+            const sn = Math.sin((a * Math.PI) / 180);
+            low = Math.min(low, P.yT + sn * len, P.yT - sn * len * 0.6);
+          }
+        }
+        // (With principal axes always a row lower: an axis' end can sit just
+        // above `low` with its number under it.)
+        f.label([b.x0, low], `T: x_T = ${num(P.xT)} cm, y_T = ${num(P.yT)} cm`, { dy: sym ? 18 : 34, anchor: "start" });
+
+
       },
     };
   },

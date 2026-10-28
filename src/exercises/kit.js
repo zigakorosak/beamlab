@@ -12,10 +12,14 @@
 //   { title,
 //     text: [paragraph…],          the task, in Slovenian, like the exam sheet
 //     figure?: (fig) => void,      draws into a figure (draw.js)
-//     answers: [{ key, label, unit, value, scale?, tol?, step?, note? }],
+//     answers: [{ key, label, unit, value, scale?, tol?, period?, step?, note? }],
+//                                  graded to 5 % of value, or 3 % of `scale` if larger
+//                                  (nearZero()); `tol`: absolute, angles modulo `period`
 //     solution: [line…],           the worked solution, step by step
 //     solutionFigure?: (fig) => void }  e.g. the N, T, M diagrams, under the solution
 // Labels and text may use the markup of `rich()`: A_y, M_{max}, σ_1.
+
+import { SCALE_TOL } from "../core/grading.js";
 
 export function rng(seed = Date.now()) {
   // mulberry32
@@ -35,7 +39,8 @@ export function rng(seed = Date.now()) {
     pick: (items) => items[Math.floor(next() * items.length)],
     /** A multiple of `step` in [lo, hi]. */
     step: (lo, hi, step) => {
-      const n = Math.round((hi - lo) / step);
+      // Never past hi: hi − lo need not be a whole number of steps (l/6 …).
+      const n = Math.floor((hi - lo) / step + 1e-9);
       return round(lo + step * Math.floor(next() * (n + 1)), 6);
     },
     chance: (p) => next() < p,
@@ -89,8 +94,23 @@ export const plain = (text) => richParts(text).map(([t]) => t).join("");
 
 /** Answer helpers, so modules read like the exam's list of results. */
 export const ans = (key, label, unit, value, extra = {}) => ({ key, label, unit, value, ...extra });
-/** Angles are graded to the degree, not to 5 %. */
-export const angleAns = (key, label, value, extra = {}) => ans(key, label, "°", value, { tol: 1, ...extra });
+/** Angles are graded to the degree, not to 5 %, and modulo `period`
+ *  (360°; 180° for the direction of an axis or line, which α and α + 180° share). */
+export const angleAns = (key, label, value, extra = {}) => ans(key, label, "°", value, { tol: 1, period: 360, ...extra });
+
+/**
+ * Answers `keys` can come out about 0: give them a `scale`, so they're right
+ * within 1 % of the largest answer with the same unit (or of `mag`), not
+ * 5 % of almost nothing. Every other answer is graded to 5 % of its own value.
+ */
+export function nearZero(answers, keys, mag) {
+  for (const a of answers) {
+    if (!keys.includes(a.key) || a.scale !== undefined) continue;
+    const m = mag ?? Math.max(...answers.filter((b) => b.unit === a.unit).map((b) => Math.abs(b.value)));
+    a.scale = (0.01 / SCALE_TOL) * m;
+  }
+  return answers;
+}
 
 /** g as the exams use it. */
 export const G = 9.81;

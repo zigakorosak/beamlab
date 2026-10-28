@@ -162,6 +162,20 @@ test("principal(): the notes' formulas", () => {
   near(p.I1, 70 + 50);
   near(p.alpha, (0.5 * Math.atan(80 / 60) * 180) / Math.PI);
   assert.equal(p.alphaIsMax, true);
+  // I_x = I_y: α = 45° (the range is −45° < α ≤ 45°), whichever sign I_xy has.
+  const q = principal(50, 50, -10);
+  near(q.alpha, 45);
+  assert.equal(q.alphaIsMax, false);
+  near(q.Iu(Math.PI / 4), q.I2);
+  near(q.alphaMax, -45);
+});
+
+test("solution lines of a half disc bulging sideways name the right formulas", async () => {
+  const { sectionLines } = await import("../src/exercises/prerez/steps.js");
+  const sec = { parts: [{ t: "rect", x: 0, y: 0, w: 8, h: 6 }, { t: "semi", cx: 8, cy: 3, r: 3, dir: 0 }] };
+  const line = sectionLines(sec, sectionProps(sec), { x: true }).find((l) => l.startsWith("Lastni (težiščni) momenti dela 2"));
+  assert.match(line, /I_\{x2\} = π·r⁴\/8 = 31,81/);
+  assert.match(line, /I_\{y2\} = \(π·r⁴\/8 − A·e²\)/);
 });
 
 test("bending stress, exam vectors (σ in kN/cm²)", () => {
@@ -291,4 +305,76 @@ test("upogib-dimenzioniranje, random: the answer meets σ_dop exactly", () => {
       near((F * m * 100) / answer(ex, "W"), p.sdop / 10, 1e-6);
     }
   }
+});
+
+test("bbox of half / quarter discs covers only their side; tan 2α line brackets a negative I_xy", async () => {
+  const { bbox } = await import("../src/exercises/prerez/section.js");
+  assert.deepEqual(bbox(SHAPES.rectSemi(12, 3)), { x0: 0, x1: 12, y0: 0, y1: 9 });
+  assert.deepEqual(bbox({ parts: [{ t: "quarter", cx: 5, cy: 5, r: 2, sx: -1, sy: 1 }] }), { x0: 3, x1: 5, y0: 5, y1: 7 });
+  const ex = prerezKarakteristike.build({ shape: "Z", a: [6, 5, 8, 1] });
+  assert.ok(ex.solution.some((l) => l.startsWith("tan 2α_G") && l.includes("2·(−87,06)")));
+});
+
+test("prerez-karakteristike: every shape keeps its share; C flanges stick out", () => {
+  const r = rng(21);
+  const n = {};
+  const N = 4000;
+  for (let i = 0; i < N; i++) {
+    const p = prerezKarakteristike.generate(r);
+    n[p.shape] = (n[p.shape] ?? 0) + 1;
+    if (p.shape === "C") assert.ok(p.a[2] - p.a[1] >= 2, `C flange ${JSON.stringify(p.a)}`);
+  }
+  // 7 symmetric shapes share one half, 4 non-symmetric the other (1/14, 1/8).
+  for (const s of ["T", "Tflip", "Iun", "notchedI", "U", "C", "rectSemi"]) assert.ok(Math.abs(n[s] / N - 1 / 14) < 0.025, `${s}: ${n[s]}`);
+  for (const s of ["L", "Z", "rectHole", "rectTri"]) assert.ok(Math.abs(n[s] / N - 1 / 8) < 0.03, `${s}: ${n[s]}`);
+});
+
+test("reaction line states the sign of the clamp moment (clamp on the right: M_A < 0, clockwise)", () => {
+  const ex = upogibNapetost.build({ beam: { kind: "cantilever", L: 2, clamp: "right", loads: [{ t: "F", x: 0, F: 3 }] }, shape: "rect", a: [10, 20] });
+  const line = ex.solution.find((l) => l.startsWith("Reakcije"));
+  assert.match(line, /moment vpetja pozitiven v nasprotni smeri urinega kazalca/);
+  assert.match(line, /A_y = 3 kN, M_A = −6 kNm/);
+  assert.match(ex.text[0], /vpeta na desnem koncu \(vpetje A\)/); // the solution's "A" is named in the text
+});
+
+test("upogib-napetost: a hollow rectangle always has an opening (≥ 4 cm); the text doesn't say where the section is drawn", () => {
+  const r = rng(3);
+  let n = 0;
+  for (let i = 0; i < 3000; i++) {
+    const p = upogibNapetost.generate(r);
+    if (p.shape !== "hollowRect") continue;
+    n++;
+    const [B, H, b, h] = p.a;
+    assert.ok(b >= 4 && h >= 4 && b < B && h < H, JSON.stringify(p.a));
+  }
+  assert.ok(n > 100);
+  const ex = upogibNapetost.build({ beam: { kind: "simple", L: 4, s: 4, loads: [{ t: "F", x: 2, F: 2 }] }, shape: "rect", a: [10, 20] });
+  assert.match(ex.text[0], /Prečni prerez nosilca je na sliki \(mere v cm\)\./); // on a phone the section is drawn under the beam
+});
+
+test("beam figure: two forces' labels never face each other; a couple keeps a force off its label", async () => {
+  const { drawBeam, crowded } = await import("../src/exercises/prerez/beams.js");
+  const sides = (beam) => {
+    const out = [];
+    const f = new Proxy({}, { get: (_, k) => (k === "force" ? (p, a, o) => out.push([p[0], o.labelSide]) : () => {}) });
+    drawBeam(f, beam);
+    return out.sort((a, b) => a[0] - b[0]).map(([, s]) => s);
+  };
+  // Forces 0,5 m apart at the free end of a cantilever: both labels went left, one over the other.
+  assert.deepEqual(sides({ kind: "cantilever", L: 3, clamp: "left", loads: [{ t: "F", x: 3, F: 8 }, { t: "F", x: 2.5, F: 2 }] }), [-1, 1]);
+  // The left label faced right, the end one left, into it.
+  assert.deepEqual(sides({ kind: "cantilever", L: 1.5, clamp: "left", loads: [{ t: "F", x: 1, F: 2 }, { t: "F", x: 1.5, F: 17 }] }), [1, 1]);
+  // Far apart: the left one's label faces right, so the end one's goes right too.
+  assert.deepEqual(sides({ kind: "overhang", s: 4.5, L: 6.5, loads: [{ t: "F", x: 3, F: 10 }, { t: "F", x: 6.5, F: 16 }] }), [1, 1]);
+  // Alone at the end: left, as before.
+  assert.deepEqual(sides({ kind: "overhang", s: 2.5, L: 3.5, loads: [{ t: "F", x: 3.5, F: 5 }] }), [-1]);
+  assert.equal(crowded({ kind: "simple", L: 3.5, loads: [{ t: "M", x: 0, M: 11 }, { t: "F", x: 0.5, F: 16 }] }), true);
+  assert.equal(crowded({ kind: "simple", L: 3.5, loads: [{ t: "F", x: 0.5, F: 16 }, { t: "M", x: 1, M: 11 }] }), false);
+});
+
+test("upogib-dimenzioniranje F_max on a cantilever: the reaction line gives the clamp moment too", () => {
+  const ex = upogibDimenzioniranje.build({ variant: "Fmax", beam: { kind: "cantilever", L: 1, clamp: "left", loads: [{ t: "F", x: 1, F: 1, name: "F" }, { t: "F", x: 0.5, F: 2, name: "2F" }] }, shape: "rect", a: [14, 20], sdop: 10 });
+  const line = ex.solution.find((l) => l.startsWith("Moment je sorazmeren s F"));
+  assert.match(line, /A_y = 3·F, M_A = 2·F \[kNm\]/);
+  near(answer(ex, "F"), 4666.67); // N: 2·F ≤ 9,333 kNm
 });

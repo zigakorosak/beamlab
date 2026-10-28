@@ -15,7 +15,10 @@ const joinTerms = (terms) => (terms.length ? terms.join(" ").replace(/^\+ /, "")
 function distResultant(sol, it) {
   const m = sol.members[it.member];
   const R = ((it.to - it.from) * (it.q0 + it.q1)) / 2;
-  const uc = it.from + ((it.to - it.from) * (it.q0 + 2 * it.q1)) / (3 * (it.q0 + it.q1));
+  // A load running from q to −q has no single resultant (only a couple); the
+  // generators never make one, so its position just stays finite here.
+  const sum = it.q0 + it.q1;
+  const uc = Math.abs(sum) < 1e-12 ? (it.from + it.to) / 2 : it.from + ((it.to - it.from) * (it.q0 + 2 * it.q1)) / (3 * sum);
   return { R, p: [m.A[0] + m.e[0] * uc, m.A[1] + m.e[1] * uc], F: [it.d[0] * R, it.d[1] * R], uc };
 }
 
@@ -39,7 +42,7 @@ export function resultantLines(sol, { len = "m", fu = "kN" } = {}) {
     if (it.kind !== "D") continue;
     const r = distResultant(sol, it);
     const m = sol.members[it.member];
-    out.push(`Rezultanta zvezne obtežbe na ${m.a}${m.b}: Q = ${num(Math.abs(r.R))} ${fu}, prijemališče ${num(r.uc)} ${len} od ${m.a} (težišče obtežbe).`);
+    out.push(`Rezultanta zvezne obtežbe na ${m.a}${m.b}: Q = ${num(Math.abs(r.R))} ${fu}, prijemališče ${num(r.uc)} ${len} od ${m.a}${Math.abs(m.e[0] * m.e[1]) > 1e-9 ? " vzdolž osi odseka" : ""} (težišče obtežbe).`);
   }
   return out;
 }
@@ -99,7 +102,8 @@ export function fieldLines(sol, order, { fu = "kN", mu = "kNm", len = "m" } = {}
   for (const id of order) {
     const m = sol.members[id];
     const nf = m.breaks.length - 1;
-    out.push(`Odsek ${m.a}${m.b} (s od ${m.a} proti ${m.b}, dolžina ${num(m.L)} ${len}${nf > 1 ? `, ${nf} polja` : ""}):`);
+    const fields = nf === 2 ? "polji" : nf <= 4 ? "polja" : "polj";
+    out.push(`Odsek ${m.a}${m.b} (s od ${m.a} proti ${m.b}, dolžina ${num(m.L)} ${len}${nf > 1 ? `, ${nf} ${fields}` : ""}):`);
     for (let j = 0; j < nf; j++) {
       const s0 = m.breaks[j], s1 = m.breaks[j + 1];
       const a = m.at(s0, "+"), b = m.at(s1, "-");

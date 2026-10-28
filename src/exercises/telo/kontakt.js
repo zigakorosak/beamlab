@@ -12,8 +12,8 @@
 //                   corner of two walls; the cord's line passes through the
 //                   centre (1.6.2015 and the corner variant).
 
-import { ans, deg, num, q, rad } from "../kit.js";
-import { iso } from "../draw.js";
+import { ans, deg, num, q, rad, nearZero } from "../kit.js";
+import { iso, svgText, textWidth } from "../draw.js";
 
 const gText = (g) => (g === 10 ? "g = 10 m/s²" : "g = 9,81 m/s²");
 
@@ -64,7 +64,7 @@ export const palicaPolvalj = {
     return {
       title: this.title,
       text: [
-        `Homogen drog dolžine L = ${q(L, "m")} in mase m = ${q(m, "kg")} je v točki A členkasto pritrjen na tla in se v točki B naslanja na gladek polvalj s polmerom r = ${q(r, "m")}. ${dText} (glej sliko). Trenja ni, ${gText(g)}.`,
+        `Homogen drog dolžine L = ${q(L, "m")} in mase m = ${q(m, "kg")} je v točki A členkasto pritrjen na tla in se v točki B naslanja na gladek, na tla pritrjen polvalj s polmerom r = ${q(r, "m")}. ${dText} (glej sliko). Trenja ni, ${gText(g)}.`,
         `Izračunajte velikost sile B, s katero polvalj deluje na drog, in velikosti komponent reakcije v členku A (A_x vodoravno, A_y navpično).${askF ? " Kolikšen bi moral biti najmanj koeficient trenja f med polvaljem in tlemi, če polvalj ne bi bil pritrjen? Teža polvalja je zanemarljiva." : ""}`,
       ],
       figure(f) {
@@ -80,9 +80,13 @@ export const palicaPolvalj = {
         f.point(C, "", {});
         const rp = [d + r * Math.cos(rad(40)), r * Math.sin(rad(40))];
         f.line(C, rp, "fig-thin");
-        f.label([(C[0] + rp[0]) / 2, (C[1] + rp[1]) / 2], `r = ${q(r, "m")}`, { dx: 10, dy: 12, anchor: "start" });
-        f.label([0.3 * L * c, 0.3 * L * sn], `m = ${q(m, "kg")}`, { dx: 6, dy: 20, anchor: "start" });
-        f.dim([0, 0], E, `L = ${q(L, "m")}`, -34);
+        // Outside the half-cylinder past the radius' end, and above the bar:
+        // inside, on a phone, they would lie on the outline and the hatching.
+        f.label(rp, `r = ${q(r, "m")}`, { dx: 6, dy: -4, anchor: "start", alts: [[-2, -10, "start"], [10, 12, "start"]] });
+        f.label([0.3 * L * c, 0.3 * L * sn], `m = ${q(m, "kg")}`, { dx: -6, dy: -14, anchor: "end", alts: [[-10, -18, "middle"], [12, 4, "start"], [6, 20, "start"], [10, 24, "start"], [-8, -22, "end"], [-16, -16, "end"], [16, 12, "start"]] });
+
+        f.dim([0, 0], E, `L = ${q(L, "m")}`, -46); // room for the mass label in between
+
         if (gap) f.dim([0, 0], [d - r, 0], q(d - r, "m"), 30);
         else f.dim([0, 0], C, q(d, "m"), 30);
       },
@@ -138,7 +142,8 @@ export const nosilecValj = {
       const side = rnd.pick([-1, 1]); // lower centre towards the wall (−1) or away
       const phi = Math.acos(cosp);
       const H = (r1 + r2) * Math.sin(phi);
-      if (H - r1 < 0.1) continue; // the hanging body must clear the ground
+      // The hanging body must clear the ground, the lower one the beam.
+      if (H - Math.max(r1, r2) < 0.1) continue;
       if (side < 0 && a - e - r2 < 0.4) continue;
       if (a - r1 < 0.3) continue;
       const mn = rnd.chance(0.5) ? 0 : rnd.step(20, 100, 10);
@@ -156,7 +161,7 @@ export const nosilecValj = {
     return {
       title: this.title,
       text: [
-        `Vodoraven nosilec dolžine ${q(L, "m")} je v točki A členkasto pritrjen na steno. ${a === L ? "Na njegovem prostem koncu" : `Na razdalji ${q(a, "m")} od A`} je nanj pritrjen polvalj ${rr} in mase m = ${q(m, "kg")} (ravna ploskev ob nosilcu, središče na osi nosilca). Polvalj se v točki B naslanja na nepomičen polvalj ${same ? "enakega polmera" : `s polmerom r_2 = ${q(r2, "m")}`}, ki leži na tleh; njegovo središče je vodoravno zamaknjeno za ${q(e, "m")} ${side < 0 ? "proti steni" : "stran od stene"}.`,
+        `Vodoraven nosilec dolžine ${q(L, "m")} je v točki A členkasto pritrjen na steno. ${a === L ? "Na njegovem prostem koncu" : `Na razdalji ${q(a, "m")} od A`} je nanj pritrjen polvalj ${rr} in mase m = ${q(m, "kg")} (ravna ploskev ob nosilcu, središče na osi nosilca). Polvalj se v točki B naslanja na nepomičen polvalj ${same ? "enakega polmera" : `s polmerom r_2 = ${q(r2, "m")}`}, ki leži na tleh; njegovo središče je glede na središče zgornjega polvalja vodoravno zamaknjeno za ${q(e, "m")} ${side < 0 ? "proti steni" : "stran od stene"}.`,
         `${mn ? `Masa nosilca je ${q(mn, "kg")}` : "Masa nosilca je zanemarljiva"}, trenja ni, g = 9,81 m/s². Izračunajte velikosti reakcijskih sil v A (A_x, A_y) in v stiku B.`,
       ],
       figure(f) {
@@ -173,8 +178,15 @@ export const nosilecValj = {
         f.point(O1, "", {});
         f.point(O2, "", {});
         const Bp = [O2[0] + (O1[0] - O2[0]) * (r2 / (r1 + r2)), O1[1] * (r2 / (r1 + r2))];
-        f.point(Bp, "B", { dx: side < 0 ? 8 : -8, dy: 4, anchor: side < 0 ? "start" : "end" });
-        f.label([a, H - r1 * 0.45], "m", { dx: side < 0 ? 12 : -12 });
+        f.point(Bp, "B", { dx: side < 0 ? 8 : -8, dy: 4, anchor: side < 0 ? "start" : "end", alts: [[side < 0 ? 8 : -8, -6, side < 0 ? "start" : "end"], [side < 0 ? -8 : 8, 14, side < 0 ? "end" : "start"]] });
+        // (A small half-cylinder on a phone: lower, clear of the beam, on its
+        // other side, or beside it, outside.)
+        f.custom([[a, H - r1 * 0.45]], (T) => {
+          const x = T.X(a), y = T.Y(H - r1 * 0.45), rp = r1 * T.ppm, sd = side < 0 ? 1 : -1;
+          const t = svgText(x + sd * 12, y, "m", { class: "fig-label", "text-anchor": "middle" });
+          t.alts = [[x + sd * 12, y, "middle"], [x + sd * 12, y + 5, "middle"], [x + sd * 14, y + 9, "middle"], [x - sd * 12, y + 5, "middle"], [x + sd * (rp + 6), y + 4, sd > 0 ? "start" : "end"], [x - sd * (rp + 6), y + 4, sd > 0 ? "end" : "start"]];
+          return t;
+        });
         // radii: upper to the lower side away from the contact, lower at 135° / 45°
         const k1 = rad(side < 0 ? 300 : 240);
         const p1 = [a + r1 * Math.cos(k1), H + r1 * Math.sin(k1)];
@@ -188,9 +200,12 @@ export const nosilecValj = {
         f.dim([0, H], [L, H], q(L, "m"), -24);
         if (a !== L) f.dim([0, H], [a, H], q(a, "m"), -48);
         const lo = side < 0 ? [O2, [a, 0]] : [[a, 0], O2];
-        f.dim(lo[0], lo[1], q(e, "m"), -26);
+        f.dim(lo[0], lo[1], q(e, "m"), 26); // under the ground: inside the half-cylinder it crosses the radius and B
+
       },
-      answers: [ans("Ax", "A_x", "N", R.Ax), ans("Ay", "A_y", "N", Math.abs(R.Ay)), ans("B", "B", "N", R.B)],
+      // A_y = G_n(1 − L/2a) is exact; a scale of G_n/2 (its value for a = L)
+      // forgives rounding in G + G_n − B sin φ but not an A_y of 0 for G_n > 0.
+      answers: nearZero([ans("Ax", "A_x", "N", R.Ax), ans("Ay", "A_y", "N", Math.abs(R.Ay), mn ? { scale: R.Gn / 2 } : {}), ans("B", "B", "N", R.B)], ["Ay"]),
       solution: [
         `Teža polvalja: G = m·g = ${num(m)}·9,81 = ${num(R.G)} N; prijemlje pod središčem, na razdalji ${num(a)} m od A.${mn ? ` Teža nosilca: G_n = ${num(R.Gn)} N na sredini (${num(L / 2)} m od A).` : ""}`,
         `Gladek stik dveh krožnih ploskev: sila B leži na zveznici obeh središč. Razdalja središč je r_1 + r_2 = ${num(r1 + r2)} m, vodoravni zamik ${num(e)} m → cos φ = ${num(e)}/${num(r1 + r2)}, φ = ${num(deg(R.phi))}° (kot zveznice z vodoravnico).`,
@@ -213,6 +228,20 @@ export function solveKroglaVrv({ corner, r, l, G }) {
   return { a, phi, S, H, N: corner ? H / Math.SQRT2 : H };
 }
 
+/**
+ * The rope's length beside its middle; a short rope's (the sphere close by)
+ * a little higher, or above where it is tied (see placeLabels).
+ */
+function ropeLabel(f, mid, tied, text) {
+  f.custom([mid], (T) => {
+    const x = T.X(mid[0]), y = T.Y(mid[1]), xt = T.X(tied[0]), yt = T.Y(tied[1]);
+    const alts = [[x + 10, y, "start"], [x + 10, y - 10, "start"], [x + 10, y - 24, "start"], [x - 10, y, "end"], [x - 10, y - 14, "end"], [xt + 8, yt - 10, "start"], [xt + 8, yt - 24, "start"], [xt + 8, yt - 38, "start"]];
+    const t = svgText(x + 10, y, text, { class: "fig-label", "text-anchor": "start" });
+    t.alts = alts;
+    return t;
+  }, { l: 8, r: textWidth(text) + 14, t: 16, b: 8 });
+}
+
 export const kroglaVrv = {
   id: "krogla-vrv",
   group: "statika",
@@ -230,6 +259,8 @@ export const kroglaVrv = {
       const byMass = rnd.chance(0.5);
       const m = rnd.step(2, 30, 1);
       const G = byMass ? m * 9.81 : rnd.step(50, 400, 10);
+      // No denser than lead (11 300 kg/m³): 30 kg on a 4 cm radius was 7× osmium.
+      if (G / 9.81 > 11300 * (4 / 3) * Math.PI * (r / 100) ** 3) continue;
       return { corner, r, l, G, m: byMass ? m : null };
     }
   },
@@ -237,7 +268,7 @@ export const kroglaVrv = {
   build(p) {
     const { corner, r, l, G, m } = p;
     const R = solveKroglaVrv(p);
-    const load = m ? `mase m = ${q(m, "kg")} (g = 9,81 m/s²)` : `s težo G = ${q(G, "N")}`;
+    const load = m ? `in maso m = ${q(m, "kg")} (g = 9,81 m/s²)` : `in težo G = ${q(G, "N")}`;
     const phiDeg = deg(R.phi);
     return {
       title: this.title,
@@ -268,9 +299,10 @@ export const kroglaVrv = {
             f.hinge(P(0, 0, zt));
             f.point(C, "", {});
             const mid = P((k * r) / 2, (k * r) / 2, zt - (k * (zt - zc)) / 2);
-            f.label(mid, `l = ${q(l, "cm")}`, { dx: 10, anchor: "start" });
-            f.label([C[0] + r, C[1]], `r = ${q(r, "cm")}`, { dx: 8, dy: -4, anchor: "start" });
-            f.label([C[0] + r, C[1]], m ? `m = ${q(m, "kg")}` : `G = ${q(G, "N")}`, { dx: 8, dy: 14, anchor: "start" });
+            ropeLabel(f, mid, P(0, 0, zt), `l = ${q(l, "cm")}`);
+            // Right of the back wall's edge (beside the sphere they'd lie on it).
+            f.label([W, C[1]], `r = ${q(r, "cm")}`, { dx: 6, dy: -4, anchor: "start" });
+            f.label([W, C[1]], m ? `m = ${q(m, "kg")}` : `G = ${q(G, "N")}`, { dx: 6, dy: 14, anchor: "start" });
             // plan view: the corner at the top left, the sphere touching both walls
             const X0 = W + 2.2 * r + 4, Y0 = top - 2;
             const a = 2.6 * r;
@@ -287,7 +319,7 @@ export const kroglaVrv = {
         : (f) => {
             const yt = (l + r) * Math.cos(R.phi);
             const top = yt + Math.max(4, 0.3 * (l + r));
-            f.ground([0, -r - 4], [0, top]);
+            f.ground([0, top], [0, -r - 4]); // hatched on the left, behind the wall
             const C = [R.a, 0];
             const T = [0, yt];
             const k = l / (l + r);
@@ -297,7 +329,7 @@ export const kroglaVrv = {
             f.dashed(Sp, C);
             f.hinge(T);
             f.point(C, "", {});
-            f.label([Sp[0] / 2, (T[1] + Sp[1]) / 2], `l = ${q(l, "cm")}`, { dx: 10, anchor: "start" });
+            ropeLabel(f, [Sp[0] / 2, (T[1] + Sp[1]) / 2], T, `l = ${q(l, "cm")}`);
             const rp = [r + r * Math.cos(rad(-30)), r * Math.sin(rad(-30))];
             f.line(C, rp, "fig-thin");
             f.label(rp, `r = ${q(r, "cm")}`, { dx: 8, dy: 8, anchor: "start" });

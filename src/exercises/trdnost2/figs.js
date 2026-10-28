@@ -10,14 +10,16 @@
 //   intoPage       a force perpendicular to the drawing (⊗ / ⊙)
 
 import { s, arrowHead } from "../../render/svg.js";
-import { svgText } from "../draw.js";
+import { svgText, textWidth } from "../draw.js";
 import { num } from "../kit.js";
 
 /**
  * Torque on a horizontal shaft at p (world), shaft radius `r` (world).
  * `sign` > 0: torque vector along +x (to the right), < 0: along −x.
+ * `avoid`: [x (world), label] of another torque's label on the same row; when
+ * the two would meet, this label first tries the side away from it.
  */
-export function torqueArc(f, p, r, sign, label, { dy = 0 } = {}) {
+export function torqueArc(f, p, r, sign, label, { dy = 0, avoid } = {}) {
   f.custom(
     [p],
     (T) => {
@@ -37,10 +39,28 @@ export function torqueArc(f, p, r, sign, label, { dy = 0 } = {}) {
         s("path", { d: "M" + pts.slice(0, -1).map((q) => q.join(" ")).join(" L"), fill: "none" }),
         arrowHead(x1 + (x1 - x0) * 0.8, y1 + (y1 - y0) * 0.8, x1 - x0, y1 - y0, 9),
       );
-      if (label) g.append(svgText(x, y - R - 8 + dy, label, { class: "fig-force-label", "text-anchor": "middle" }));
+      if (label) {
+        const t = svgText(x, y - R - 8 + dy, label, { class: "fig-force-label", "text-anchor": "middle" });
+        // Another torque's label close by (a short segment on a phone): to
+        // one side, or a row higher (see placeLabels).
+        const yl = y - R - 8 + dy;
+        t.alts = [[x, yl, "middle"], [x + 8, yl, "end"], [x - 8, yl, "start"], [x, yl - 15, "middle"], [x + 8, yl - 15, "end"], [x - 8, yl - 15, "start"], [x + 8, yl - 30, "end"], [x - 8, yl - 30, "start"]];
+        if (avoid) {
+          // (The other label is placed later, in the middle over its arc.)
+          const ox = T.X(avoid[0]), w = textWidth(label) * 1.05, wo = textWidth(avoid[1]) * 1.05; // (bold)
+          const gap = Math.abs(ox - x) - wo / 2; // free room between this arc and the other label
+          if (gap < w / 2 + 4) {
+            // Beside the arc, away from the other label, or (no room there either) a row higher.
+            const i = (ox > x ? 1 : 2) + (gap < 8 + 4 ? 3 : 0);
+            t.alts.unshift(t.alts.splice(i, 1)[0]);
+          }
+        }
+        g.append(t);
+      }
       return g;
     },
-    60,
+    (ppm) => ({ l: 60, r: 60, b: 60, t: r * ppm + 9 + 8 + (avoid ? 30 : 15) + 16 }), // (two rows higher: beside a neighbour's label)
+
   );
 }
 

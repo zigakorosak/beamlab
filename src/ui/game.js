@@ -15,7 +15,7 @@ import { momentExtrema, solve } from "../core/solver.js";
 import { equilibriumSteps } from "../core/explain.js";
 import { loadSettings } from "../core/settings.js";
 import { fmt, parseNumber } from "../core/format.js";
-import { closeEnough, isExact } from "../core/grading.js";
+import { isExact, reactionsOk } from "../core/grading.js";
 import { drawModel, MODEL_BAND } from "../render/beamView.js";
 import { BAND_HEIGHT } from "../render/diagramView.js";
 import { makeScale, solutionBands } from "../render/board.js";
@@ -155,6 +155,7 @@ export function renderGame(root, navigate, config, backState) {
     svg.append(
       drawModel(model, {
         X,
+        width,
         reactions: reactionsKnown ? sol.reactions : null,
         unknowns: !reactionsKnown,
         resultants: st === "reactions" && phase === "result",
@@ -343,10 +344,11 @@ export function renderGame(root, navigate, config, backState) {
     if (st === "reactions") {
       total = reactionInputs.length;
       right = 0;
-      const scale = Math.max(...reactionInputs.map((ri) => Math.abs(ri.answer)));
-      for (const ri of reactionInputs) {
-        const v = parseNumber(ri.input.value) ?? 0;
-        const ok = closeEnough(v, ri.answer, scale);
+      const given = reactionInputs.map((ri) => parseNumber(ri.input.value) ?? 0);
+      const oks = reactionsOk(given, reactionInputs);
+      for (const [i, ri] of reactionInputs.entries()) {
+        const v = given[i];
+        const ok = oks[i];
         if (ok) right++;
         ri.input.readOnly = true;
         ri.input.classList.add(ok ? "input--correct" : "input--wrong");

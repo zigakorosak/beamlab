@@ -14,9 +14,10 @@ export const kNm = (v) => `${fmt(v)} kNm`;
 export const kNpm = (v) => `${fmt(v)} kN/m`;
 export const m = (v) => `${fmt(v)} m`;
 
-/** Parse a typed number, accepting "," as the decimal point and "−". */
+/** Parse a typed number, accepting "," as the decimal point, "−", and
+ *  spaces between digits as a thousands separator ("12 500"). */
 export function parseNumber(text) {
-  const t = String(text).trim().replace(",", ".").replace("−", "-");
+  const t = String(text).trim().replace(/(\d)[\s\u00a0\u202f\u2009]+(?=\d)/g, "$1").replace(",", ".").replace("−", "-");
   if (t === "" || t === "-") return null;
   const v = Number(t);
   return Number.isFinite(v) ? v : null;

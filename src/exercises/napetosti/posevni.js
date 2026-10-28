@@ -26,6 +26,8 @@ export const posevniPrerez = {
       const beta = r.step(15, 75, 5);
       if (r.chance(0.6)) {
         const F = r.chance(0.3) ? r.step(2, 20, 0.5) : r.step(5, 60, 1);
+        // A glued joint: |σx| between 0,3 and 6 kN/cm² (the exams: 0,5 and 5).
+        if (F / (b * h) < 0.3 || F / (b * h) > 6) continue;
         return { kind: "napetosti", b, h, beta, F, tension: r.chance(0.7) };
       }
       const sdop = r.step(0.3, 2, 0.1);
@@ -53,7 +55,8 @@ export const posevniPrerez = {
       f.dashed([-0.04 * Ld, 0], [1.04 * Ld, 0]);
       const k = h / 2 / sb;
       f.line([m - k * cb, -h / 2], [m + k * cb, h / 2], "fig-rope");
-      f.label([m + k * cb, h / 2], "lepilni spoj", { dx: 4, dy: -8, anchor: "start", cls: "fig-name" });
+      f.label([m + k * cb, h / 2], "lepilni spoj", { dx: 4, dy: -8, anchor: "start", cls: "fig-name", alts: [[-4, -8, "end"], [0, -22, "middle"]] });
+
       f.angle([m, 0], 0, beta, "β", 34);
       const out = p.tension;
       // Text above each arrow (labelSide: left of the arrow's direction).

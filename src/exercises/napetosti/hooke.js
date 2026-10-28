@@ -10,11 +10,12 @@
 // Units inside: kN, cm, kN/cm² (E = 21000 kN/cm² = 210 GPa); answers in
 // kN, MPa (1 kN/cm² = 10 MPa) and mm.
 
-import { ans, num, q } from "../kit.js";
+import { ans, nearZero, num, q } from "../kit.js";
 
 const STEEL = { E: 21000, a: 1.2e-5, name: "jeklo" };
 const ALU = { E: 7000, a: 2.3e-5, name: "aluminij" };
-const GPa = (E) => num(E / 100); // kN/cm² → GPa
+// Hooke holds only below yield: |σ| ≤ 24 kN/cm² (240 MPa) in steel, 15 in aluminium.
+const elastic = (steel, alu = []) => steel.every((v) => Math.abs(v) <= 24) && alu.every((v) => Math.abs(v) <= 15);
 const sci = (a) => `${num(a * 1e5)}·10^{−5} K^{−1}`;
 
 /** Bar drawn on the x axis from x0 to x1 with height h (world). */
@@ -51,24 +52,36 @@ export const hookePalice = {
         if (kind === "stopnicasta") {
           const F1 = r.pick([-1, 1]) * r.step(5, 60, 5), F2 = r.pick([-1, 1]) * r.step(5, 60, 5);
           if (Math.abs(F1 + F2) < 5) continue;
+          if (!elastic([(F1 + F2) / A1, F2 / A2])) continue;
+          // ΔL = ΔL₁ + ΔL₂ must not nearly cancel (its tolerance is 3 % of the larger part).
+          const d1 = ((F1 + F2) * L1) / A1, d2 = (F2 * L2) / A2;
+          if (Math.abs(d1 + d2) < 0.15 * Math.max(Math.abs(d1), Math.abs(d2))) continue;
           return { kind, A1, A2, L1, L2, F1, F2 };
         }
         const F = r.pick([-1, 1]) * r.step(10, 100, 10);
         const dT = r.chance(0.5) ? r.step(10, 40, 5) : 0;
         const t = vpeta({ A1, A2, L1, L2, F, dT });
         if (Math.abs(t.N1) < 3 || Math.abs(t.N2) < 3) continue;
+        if (!elastic([t.N1 / A1, t.N2 / A2])) continue;
+        // With heating u = ΔL₁ is a difference: not one that nearly cancels.
+        if (Math.abs(t.u) < 0.15 * uScale(t, { L1, L2, dT })) continue;
         return { kind, A1, A2, L1, L2, F, dT };
       }
       const As = r.step(2, 10, 1), Aa = r.step(4, 20, 1), L = r.step(0.5, 2, 0.5);
       const mode = r.pick(["F", "F", "gap", "dT"]);
-      if (mode === "dT") return { kind, As, Aa, L, F: 0, delta: 0, dT: r.step(20, 80, 10) };
-      const F = r.step(20, 200, 10);
-      if (mode === "F") return { kind, As, Aa, L, F, delta: 0, dT: 0 };
-      const delta = r.step(0.05, 0.4, 0.05);
-      const ka = (ALU.E * Aa) / (L * 100);
-      // The plate must reach the rod (and not just barely).
-      if (F < 1.3 * ka * (delta / 10)) continue;
-      return { kind, As, Aa, L, F, delta, dT: 0 };
+      let t;
+      if (mode === "dT") t = { kind, As, Aa, L, F: 0, delta: 0, dT: r.step(20, 80, 10) };
+      else {
+        const F = r.step(20, 200, 10);
+        const delta = mode === "gap" ? r.step(0.05, 0.4, 0.05) : 0;
+        const ka = (ALU.E * Aa) / (L * 100);
+        // The plate must reach the rod (and not just barely).
+        if (delta && F < 1.3 * ka * (delta / 10)) continue;
+        t = { kind, As, Aa, L, F, delta, dT: 0 };
+      }
+      const c = cev(t);
+      if (!elastic([c.Ns / As], [c.Na / Aa])) continue;
+      return t;
     }
   },
 
@@ -105,13 +118,14 @@ function stepped({ A1, A2, L1, L2, F1, F2 }) {
     title: hookePalice.title,
     text: [
       `Jeklena stopničasta palica (E = 210 GPa) je na levem koncu vpeta v steno. Na stiku obeh delov deluje osna sila F_1 = ${q(Math.abs(F1), "kN")} ${dir(F1)}, na prostem koncu pa F_2 = ${q(Math.abs(F2), "kN")} ${dir(F2)}.`,
-      "Izračunajte osni sili N_1, N_2 in normalni napetosti σ_1, σ_2 v obeh delih (nateg +, tlak −) ter spremembo dolžine palice ΔL (podaljšek +, skrček −).",
+      "Izračunajte osni sili N_1, N_2 in normalni napetosti σ_1, σ_2 v obeh delih (nateg +, tlak −) ter spremembo dolžine palice ΔL (podaljšek +, skrček −). Uklona ne upoštevajte.",
     ],
     figure(f) {
       const { Lt, top } = figureBar(f, { A1, A2, L1, L2 }, 1);
       axial(f, L1, F1, "F_1", top); // values in the text
       axial(f, Lt, F2, "F_2");
     },
+    // N = F₁ + F₂ and N/A have no cancellation (|N| ≥ 5 kN): graded to 5 % of their own value.
     answers: [
       ans("N1", "N_1", "kN", N1),
       ans("N2", "N_2", "kN", N2),
@@ -143,27 +157,44 @@ export function vpeta({ A1, A2, L1, L2, F, dT }) {
   return { N1, N2, u, f1, f2, th };
 }
 
+/** The terms u is made of (u = ΔL₁ = −ΔL₂), in mm: the size its near-zero tolerance is taken from. */
+const uScale = ({ N1, N2, f1, f2 }, { L1, L2, dT }) => Math.max(Math.abs(N1 * f1), Math.abs(N2 * f2), STEEL.a * dT * Math.max(L1, L2) * 100) * 10;
+
+/**
+ * With heating N₁ comes from a difference (F·f₂ − α_TΔT·L), so N₁, N₂ get a `scale` (1 % of the
+ * larger |N|); each σ = N/A gets the same scale divided by its own A, not 1 % of the larger σ (that
+ * let σ = 2,4 MPa pass at ±60 % when the other part had 160 MPa). Without heating N₁ = F·f₂/(f₁ + f₂)
+ * and N₂ = −F·f₁/(f₁ + f₂) are products, no cancellation: each graded to 5 % of its own value
+ * (the scale let N₂ = −3,6 kN pass at ±24 % when N₁ = 86 kN).
+ */
+function clampedAnswers({ A1, A2, dT }, N1, N2, u, uSc) {
+  const a = [ans("N1", "N_1", "kN", N1), ans("N2", "N_2", "kN", N2)];
+  if (!dT) return [...a, ans("s1", "σ_1", "MPa", (N1 / A1) * 10), ans("s2", "σ_2", "MPa", (N2 / A2) * 10), ans("u", "u", "mm", u)];
+  const sN = nearZero(a, ["N1", "N2"])[0].scale;
+  return [
+    ...a,
+    ans("s1", "σ_1", "MPa", (N1 / A1) * 10, { scale: (sN / A1) * 10 }),
+    ans("s2", "σ_2", "MPa", (N2 / A2) * 10, { scale: (sN / A2) * 10 }),
+    ans("u", "u", "mm", u, { scale: uSc }),
+  ];
+}
+
 function clamped(p) {
   const { A1, A2, L1, L2, F, dT } = p;
-  const { N1, N2, u, f1, f2, th } = vpeta(p);
+  const t = vpeta(p);
+  const { N1, N2, u, f1, f2, th } = t;
   return {
     title: hookePalice.title,
     text: [
       `Jeklena stopničasta palica (E = 210 GPa, α_T = ${sci(STEEL.a)}) je na obeh koncih togo vpeta. Na stiku obeh delov deluje osna sila F = ${q(Math.abs(F), "kN")} ${F > 0 ? "v desno" : "v levo"}${dT ? `, poleg tega palico enakomerno segrejemo za ΔT = ${dT} K` : ""}.`,
-      "Izračunajte osni sili N_1, N_2 in napetosti σ_1, σ_2 v obeh delih (nateg +, tlak −) ter pomik u stika obeh delov (v desno +).",
+      "Izračunajte osni sili N_1, N_2 in napetosti σ_1, σ_2 v obeh delih (nateg +, tlak −) ter pomik u stika obeh delov (v desno +). Uklona ne upoštevajte.",
     ],
     figure(f) {
       const { Lt, H, top } = figureBar(f, p, 2);
       axial(f, L1, F, "F", top);
       if (dT) f.label([L1 > L2 ? L1 / 2 : L1 + L2 / 2, H], `ΔT = +${dT} K`, { dy: -14 });
     },
-    answers: [
-      ans("N1", "N_1", "kN", N1),
-      ans("N2", "N_2", "kN", N2),
-      ans("s1", "σ_1", "MPa", (N1 / A1) * 10),
-      ans("s2", "σ_2", "MPa", (N2 / A2) * 10),
-      ans("u", "u", "mm", u, { scale: Math.max(Math.abs(N1 * f1), Math.abs(N2 * f2), th) * 10 }),
-    ],
+    answers: clampedAnswers(p, N1, N2, u, uScale(t, p)),
     solution: [
       "Neznanki sta dve (N_1, N_2), ravnotežna enačba ena → statično nedoločeno; dodamo pogoj kompatibilnosti.",
       "Ravnotežje stika (vozlišča med deloma): −N_1 + N_2 + F = 0 → N_2 = N_1 − F (F v desno +).",
@@ -208,7 +239,7 @@ function tube(p) {
       ]
     : delta
       ? [
-          `Najprej nosi le cev. Da se plošča dotakne palice, mora cev skrajšati za δ: sila F_δ = δ·E_aA_a/L = ${num(delta / 10)}·${num(ka)} = ${num((ka * delta) / 10)} kN < F → pride do stika.`,
+          `Najprej nosi le cev. Da se plošča dotakne palice, se mora cev skrajšati za δ: sila F_δ = δ·E_aA_a/L = ${num(delta / 10)}·${num(ka)} = ${num((ka * delta) / 10)} kN < F → pride do stika.`,
           "Ravnotežje: |N_j| + |N_a| = F (obe sili tlačni). Kompatibilnost: skrček cevi s = skrček palice + δ.",
           `|N_a| = (E_aA_a/L)·s, |N_j| = (E_jA_j/L)·(s − δ), E_jA_j/L = ${num(ks)} kN/cm, E_aA_a/L = ${num(ka)} kN/cm.`,
           `s = (F + δ·E_jA_j/L)/(E_aA_a/L + E_jA_j/L) = (${num(F)} + ${num((ks * delta) / 10)})/${num(ka + ks)} = ${num(-dL / 10)} cm = ${num(-dL)} mm.`,
@@ -223,7 +254,7 @@ function tube(p) {
     title: hookePalice.title,
     text: [
       `${mat} ${load}`,
-      "Izračunajte osni sili N_j, N_a in napetosti σ_j, σ_a v palici in cevi (nateg +, tlak −) ter spremembo dolžine cevi ΔL (podaljšek +, skrček −).",
+      "Izračunajte osni sili N_j, N_a in napetosti σ_j, σ_a v palici in cevi (nateg +, tlak −) ter spremembo dolžine cevi ΔL (podaljšek +, skrček −). Uklona ne upoštevajte.",
     ],
     figure(f) {
       const top = 3, gap = delta ? 0.18 : 0;
@@ -233,13 +264,13 @@ function tube(p) {
       f.rect(-0.26, 0, 0.52, top - gap, "fig-body");
       f.rect(-0.8, top, 1.6, 0.16);
       if (F) f.force([0, top + 0.16], -90, { len: 46, label: `F = ${q(F, "kN")}` });
-      f.line([0, 1.1], [1.15, 0.7], "fig-thin");
-      f.label([1.15, 0.7], `jeklo, A_j = ${num(As)} cm²`, { anchor: "start", dx: 4, dy: 4 });
-      f.line([0.53, 2.1], [1.15, 2.1], "fig-thin");
-      f.label([1.15, 2.1], `Al cev, A_a = ${num(Aa)} cm²`, { anchor: "start", dx: 4, dy: 4 });
+      f.line([0, 1.1], [0.9, 0.7], "fig-thin");
+      f.label([0.9, 0.7], `jeklo, A_j = ${num(As)} cm²`, { anchor: "start", dx: 4, dy: 4 });
+      f.line([0.53, 2.1], [0.9, 2.1], "fig-thin");
+      f.label([0.9, 2.1], `Al cev, A_a = ${num(Aa)} cm²`, { anchor: "start", dx: 4, dy: 4 });
       if (delta) {
-        f.line([0, top - gap / 2], [1.15, top - 0.35], "fig-thin");
-        f.label([1.15, top - 0.35], `δ = ${num(delta)} mm`, { anchor: "start", dx: 4, dy: 4 });
+        f.line([0, top - gap / 2], [0.9, top - 0.35], "fig-thin");
+        f.label([0.9, top - 0.35], `δ = ${num(delta)} mm`, { anchor: "start", dx: 4, dy: 4 });
       }
       if (dT) f.label([0, top + 0.16], `ΔT = +${dT} K`, { dy: -12 });
       f.dim([-0.62, 0], [-0.62, top], `L = ${num(L)} m`, -24);

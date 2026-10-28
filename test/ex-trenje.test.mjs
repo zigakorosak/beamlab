@@ -29,11 +29,13 @@ test("stacked blocks: G1 = 3, G2 = 4, f = 0,4 → F = 4,0 kN", () => {
   near(answer(ex, "F"), 4.0);
 });
 
-test("ladder: 150 N, 4 m, 60°, worker 1000 N at 3 m → Bx 476,13, By 1150, f 0,4142", () => {
+test("ladder: 150 N, 4 m, 60°, worker 1000 N at 3 m → Bx 476,31 (sheet: 476,13, a typo), By 1150, f 0,4142", () => {
   const ex = trenjeLestev.build({ kind: "koef", Q: 150, P: 1000, L: 4, alpha: 60, a: 3 });
-  near(answer(ex, "Bx"), 476.13);
+  near(answer(ex, "Bx"), 476.31, 1e-4); // 3300·cos 60° / (4 sin 60°); f = 476,31/1150 = 0,4142
   near(answer(ex, "By"), 1150);
   near(answer(ex, "f"), 0.4142);
+  // B_x is graded against its own size, not against the larger B_y.
+  assert.equal(ex.answers.find((a) => a.key === "Bx").scale, answer(ex, "Bx"));
   // The reverse question at that f puts the worker back at 3 m.
   const back = trenjeLestev.build({ kind: "visina", Q: 150, P: 1000, L: 4, alpha: 60, f: answer(ex, "f") });
   near(answer(back, "x"), 3);

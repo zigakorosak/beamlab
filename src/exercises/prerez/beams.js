@@ -109,7 +109,10 @@ export function crowded(beam) {
   for (let i = 1; i < u.length; i++) if (u[i] - u[i - 1] < 0.12 * L - 1e-9) return true;
   // A force and a couple (or two forces) on the same point: their labels would collide.
   const pts = beam.loads.filter((l) => l.t !== "q").map((l) => round(l.x, 6));
-  return new Set(pts).size < pts.length;
+  if (new Set(pts).size < pts.length) return true;
+  // A couple's label sits up to its right: a force just right of it would run through it.
+  const Ms = beam.loads.filter((l) => l.t === "M"), Fs = beam.loads.filter((l) => l.t === "F");
+  return Ms.some((m) => Fs.some((F) => F.x - m.x > -1e-9 && F.x - m.x < 0.2 * L - 1e-9));
 }
 
 const where = (beam, x) => (x < 1e-9 ? "na levem koncu" : Math.abs(x - beam.L) < 1e-9 ? "na desnem koncu" : `pri x = ${num(x)} m`);
@@ -118,14 +121,14 @@ const where = (beam, x) => (x < 1e-9 ? "na levem koncu" : Math.abs(x - beam.L) <
 export function beamText(beam) {
   const sup =
     beam.kind === "cantilever"
-      ? `Konzola dolžine ${q(beam.L, "m")} je vpeta ${beam.clamp === "left" ? "na levem" : "na desnem"} koncu.`
+      ? `Konzola dolžine ${q(beam.L, "m")} je vpeta ${beam.clamp === "left" ? "na levem" : "na desnem"} koncu (vpetje A).`
       : beam.kind === "simple"
         ? `Prostoležeči nosilec razpona ${q(beam.L, "m")} (nepomična podpora A levo, pomična B desno).`
         : `Nosilec s previsom: podpori A (x = 0) in B (x = ${num(beam.s)} m), previs do x = ${num(beam.L)} m.`;
   const loads = beam.loads.map((l) => {
     if (l.t === "F") return `sila ${l.name ?? q(l.F, "kN")} navpično navzdol ${where(beam, l.x)}`;
     if (l.t === "q") return `enakomerna obtežba ${l.name ?? `q = ${q(l.q, "kN/m")}`} od x = ${num(l.x1)} m do x = ${num(l.x2)} m`;
-    return `moment ${q(Math.abs(l.M), "kNm")} ${where(beam, l.x)} (${l.M > 0 ? "v nasprotni smeri urinega kazalca" : "v smeri urinega kazalca"})`;
+    return `koncentriran moment ${q(Math.abs(l.M), "kNm")} ${where(beam, l.x)} (${l.M > 0 ? "v nasprotni smeri urinega kazalca" : "v smeri urinega kazalca"})`;
   });
   return `${sup} Obtežba: ${loads.join("; ")}.`;
 }
@@ -134,12 +137,19 @@ export function beamText(beam) {
 export function drawBeam(f, beam, { dims = true } = {}) {
   const L = beam.L;
   f.member([0, 0], [L, 0]);
-  if (beam.kind === "cantilever") f.fixed([beam.clamp === "left" ? 0 : L, 0], beam.clamp === "left" ? 0 : 180);
-  else {
+  if (beam.kind === "cantilever") {
+    f.fixed([beam.clamp === "left" ? 0 : L, 0], beam.clamp === "left" ? 0 : 180);
+    // The clamp's name (vpetje A): under the beam beside the wall, clear of
+    // the hatching, the loads above and the dimension's extension line.
+    const sx = beam.clamp === "left" ? 1 : -1, an = sx > 0 ? "start" : "end";
+    f.point([beam.clamp === "left" ? 0 : L, 0], "A", { dot: false, dx: 8 * sx, dy: 20, anchor: an, alts: [[-16 * sx, 34, sx > 0 ? "end" : "start"], [8 * sx, -10, an]] });
+  } else {
+
     f.pin([0, 0], 90);
     f.roller([beam.kind === "overhang" ? beam.s : L, 0], 90);
     f.point([0, 0], "A", { dot: false, dx: -18, dy: 10, anchor: "end" });
-    f.point([beam.kind === "overhang" ? beam.s : L, 0], "B", { dot: false, dx: 18, dy: 10 });
+    // (Past an overhang's support the beam goes on: there a little lower, clear of it.)
+    f.point([beam.kind === "overhang" ? beam.s : L, 0], "B", { dot: false, dx: 18, dy: 10, alts: [[18, 17, "start"], [-18, 17, "end"], [18, -8, "start"]] });
   }
   const qs = beam.loads.filter((l) => l.t === "q");
   for (const l of qs) f.dist([l.x1, 0], [l.x2, 0], { label: l.name ?? `q = ${q(l.q, "kN/m")}`, h0: 22 });
@@ -151,8 +161,12 @@ export function drawBeam(f, beam, { dims = true } = {}) {
       // Label on the right, unless at the right end or a neighbour sits close on the right.
       const k = Fs.indexOf(l);
       const crowdedRight = (k < Fs.length - 1 && Fs[k + 1].x - l.x < 0.3 * L) || qs.some((d) => d.x1 > l.x + 1e-9 && d.x1 - l.x < 0.3 * L);
-      const side = l.x > L - 1e-9 || crowdedRight ? -1 : 1;
-      f.force([l.x, 0], -90, { label: l.name ?? `F = ${q(l.F, "kN")}`, len: onQ ? 74 : 50, labelAt: onQ ? "end" : "side", labelSide: side });
+      // At the (free) right end the label goes left, unless a force or a couple
+      // on the left has its label there or facing it: then right, past the end.
+      // (Or a distributed load's arrows come up to it from the left.)
+      const crowdedLeft = beam.loads.some((o) => o.t !== "q" && o !== l && o.x < l.x - 1e-9) || qs.some((d) => d.x1 < l.x - 1e-9 && d.x2 > l.x - 0.3 * L);
+      const side = crowdedRight || (l.x > L - 1e-9 && !crowdedLeft) ? -1 : 1;
+      f.force([l.x, 0], -90, { label: l.name ?? `F = ${q(l.F, "kN")}`, len: onQ ? 74 : 50, labelAt: "auto", prefer: onQ ? "end" : "side", labelSide: side });
     } else if (l.t === "M") f.moment([l.x, 0], l.M > 0, `${q(Math.abs(l.M), "kNm")}`);
   }
   if (dims) {
@@ -160,7 +174,8 @@ export function drawBeam(f, beam, { dims = true } = {}) {
     if (beam.kind === "overhang") xs.push(beam.s);
     for (const l of beam.loads) l.t === "q" ? xs.push(l.x1, l.x2) : xs.push(l.x);
     const u = [...new Set(xs.map((x) => round(x, 6)))].sort((a, b) => a - b);
-    for (let i = 0; i < u.length - 1; i++) f.dim([u[i], 0], [u[i + 1], 0], `${num(u[i + 1] - u[i])} m`, 52);
+    f.dimChain(u.map((x) => [x, 0]), u.slice(1).map((x, i) => `${num(x - u[i])} m`), 52);
+
   }
 }
 
@@ -182,10 +197,14 @@ export function drawMoment(f, beam, an, { y0 = 0, height = 1, fmt = num, title =
   f.bounds([[-0.2 * beam.L, y0]]); // room for the title
   const shown = [];
   const mark = (x, v) => {
-    if (Math.abs(v) < 1e-9) return;
+    if (Math.abs(v) < 1e-6 * m) return; // (rounding dust at a support: no "0")
     if (shown.some(([sx, sv]) => Math.abs(sx - x) < 0.12 * beam.L && Math.abs(sv - v) < 0.15 * m)) return;
     shown.push([x, v]);
-    f.label([x, Y(v)], fmt(v), { dy: v > 0 ? 16 : -7 });
+    // (Near a support, or on a phone, the other side of the curve or beside it.)
+    const dy = v > 0 ? 16 : -7;
+    const dy2 = v > 0 ? 26 : -17; // a row further out (a small value by the axis)
+    f.label([x, Y(v)], fmt(v), { dy, alts: [[0, v > 0 ? -7 : 16, "middle"], [8, dy, "start"], [-8, dy, "end"], [0, dy2, "middle"], [8, dy2, "start"], [-8, dy2, "end"]] });
+
   };
   mark(an.crit.x, an.crit.value);
   for (const x of sol.xs) for (const side of ["-", "+"]) mark(x, sol.M(x, side));
@@ -197,7 +216,7 @@ export function momentLines(beam, an) {
   const lines = [];
   const rs = an.sol.reactions;
   lines.push(
-    `Reakcije (ravnotežne enačbe): ${rs
+    `Reakcije (ravnotežne enačbe; sile pozitivne navzgor${rs.some((x) => x.type === "fixed") ? ", moment vpetja pozitiven v nasprotni smeri urinega kazalca" : ""}): ${rs
       .map((x) => `${x.name}_y = ${num(x.Ry)} kN${x.type === "fixed" ? `, M_${x.name} = ${num(x.M)} kNm` : ""}`)
       .join(", ")}.`,
   );

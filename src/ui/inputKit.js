@@ -43,13 +43,14 @@ export function wheelSteps(input, onStep) {
   );
 }
 
-/** A box that steps by `step` (Shift: a tenth of it) on the wheel. */
-export function wheelNumber(input, step = 1, canEdit = () => true) {
+/** A box that steps by `step` (Shift: a tenth of it) on the wheel;
+ *  `format` writes the new value back (default: Practice's two decimals). */
+export function wheelNumber(input, step = 1, canEdit = () => true, format = boxText) {
   wheelSteps(input, (dir, e) => {
     if (!canEdit()) return;
     const d = e.shiftKey ? step / 10 : step;
     const v = (parseNumber(input.value) ?? 0) + dir * d;
-    input.value = boxText(Math.round(v * 1e6) / 1e6);
+    input.value = format(Math.round(v * 1e6) / 1e6);
     input.dispatchEvent(new Event("input"));
     input.focus({ preventScroll: true });
     input.select();

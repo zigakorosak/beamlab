@@ -10,7 +10,7 @@
 //            of the horizontal projection (snow) and maybe a point force.
 //            Asked: reactions, N at A, M_max and where it is.
 
-import { ans, num, q, rad } from "../kit.js";
+import { ans, num, q, rad, nearZero } from "../kit.js";
 import { solveFrame, maxAbsM } from "./frame.js";
 import { drawDiagrams } from "./drawFrame.js";
 import { DASHED_TEXT, clean, drawFrameModel, reactionAnswers } from "./common.js";
@@ -69,6 +69,10 @@ export const okvirPosevni = {
           const d = r.pick([45, 60, 75, 90]);
           // The rope rises from B, leaning either way.
           p.ropeDir = r.chance(0.5) ? d : 180 - d;
+          // Not nearly along the beam (the rope force would be many times the load).
+          const beam = (Math.atan2(p.h, (p.mirror ? -1 : 1) * p.a) * 180) / Math.PI;
+          const gap = Math.abs((((p.ropeDir - beam) % 180) + 270) % 180 - 90);
+          if (gap < 20) continue;
         }
         if (r.chance(0.4)) {
           p.F = r.int(2, 10);
@@ -101,11 +105,11 @@ function buildVeja(p) {
   const extras = [];
   if (p.G2) extras.push(`Na koncu veje (K, ${q(p.tip, "m")} vodoravno od korena) visi še breme G_2 = ${q(p.G2, "N")}.`);
   if (p.qw) extras.push(`Upoštevajte lastno težo veje q = ${q(p.qw, "N/m")} (na meter dolžine veje).`);
-  else if (!p.G2) extras.push("Lastno težo veje zanemarite.");
+  else extras.push("Lastno težo veje zanemarite.");
   return {
     title: this.title,
     text: [
-      `Veja drevesa izrašča iz debla v točki O (togo vpetje) pod kotom ${90 - p.alpha}° glede na navpično deblo (${p.alpha}° nad vodoravnico)${p.tip > p.p ? ` in je vodoravno dolga ${q(p.tip, "m")}` : ""}. Na vejo v točki P, ${q(p.p, "m")} vodoravno od debla, deluje navpična sila ${p.G2 ? "G_1" : "G"} = ${q(p.G, "N")}.`,
+      `Veja drevesa izrašča iz debla v točki O (togo vpetje) pod kotom ${90 - p.alpha}° glede na navpično deblo (${p.alpha}° nad vodoravnico)${p.tip > p.p ? ` in je vodoravno dolga ${q(p.tip, "m")}` : ""}. Na vejo v točki P, ${q(p.p, "m")} vodoravno od debla, deluje navpična sila (teža, navzdol) ${p.G2 ? "G_1" : "G"} = ${q(p.G, "N")}.`,
       ...extras,
       "Izračunajte osno silo N, prečno silo T in upogibni moment M v veji tik ob deblu (točka O). Narišite diagrame N, T, M za vejo.",
       `${DASHED_TEXT} Koordinata s teče od debla proti vrhu veje; T je pozitiven, kadar zunanji del veje deluje na notranjega v smeri proti črtkanim vlaknom.`,
@@ -113,7 +117,7 @@ function buildVeja(p) {
     figure(f) {
       // Trunk (not part of the model): from the ground up past the root.
       f.member([0, -1.2], [0, 0.9]);
-      f.ground([0.5, -1.2], [-0.5, -1.2]);
+      f.ground([-0.5, -1.2], [0.5, -1.2]); // hatched below, in the ground
       drawFrameModel(f, model, { fu: "N", qu: "N/m", mu: "Nm" });
       f.label([0, 0], "O", { dx: -sx * 12, dy: 14, cls: "fig-name" });
       f.label(model.nodes.P, "P", { dx: sx * 10, dy: 18, cls: "fig-name" });
@@ -132,11 +136,12 @@ function buildVeja(p) {
     solution: [
       CONVENTION,
       `Enotski vektor osi veje e = (${num(sx * Math.cos(rad(p.alpha)))}; ${num(Math.sin(rad(p.alpha)))}), normala proti črtkanim (spodnjim) vlaknom n = (${num(sx * Math.sin(rad(p.alpha)))}; ${num(-Math.cos(rad(p.alpha)))}).`,
-      `Prerez tik ob deblu, opazujemo zunanji del veje. Navpična sila G razpade na komponento vzdolž osi G·sin ${p.alpha}° (tlak, ker kaže proti deblu) in pravokotno komponento G·cos ${p.alpha}°.`,
+      `Prerez tik ob deblu, opazujemo zunanji del veje. Vsaka navpična sila F razpade na komponento vzdolž osi F·sin ${p.alpha}° (tlak, ker kaže proti deblu) in pravokotno komponento F·cos ${p.alpha}°.`,
       ...resultantLines(sol, { fu: "N" }),
       ...fieldLines(sol, model.members.map((m) => m.id), { fu: "N", mu: "Nm" }),
       `V točki O: N = ${num(root.N)} N, T = ${num(root.T)} N, M = ${num(root.M)} Nm (moment = −vsota sil × vodoravna ročica; zgornja vlakna so v nategu).`,
-      `Reakcije vpetja: ${sol.reactions.map((x) => `${x.name} = ${num(clean(x.value))} ${x.kind === "M" ? "Nm" : "N"}`).join(", ")}.`,
+      // The clamp's couple is not M_O (the internal moment): it can have the opposite sign.
+      `Reakcije vpetja (deblo deluje na vejo): ${sol.reactions.map((x) => (x.kind === "M" ? `moment vpetja ${num(clean(x.value))} Nm (+ v nasprotni smeri urinega kazalca)` : `${x.name} = ${num(clean(x.value))} N`)).join(", ")}.`,
     ],
     solutionFigure(f) {
       drawDiagrams(f, sol, { names, nodes: model.nodes, units: { N: "N", T: "N", M: "Nm" } });
@@ -191,12 +196,15 @@ function buildStreha(p) {
       f.dim([B[0], 0], B, `${num(p.h)} m`, sx > 0 ? 46 : -46);
       f.line([B[0], 0], [0, 0], "fig-thin");
     },
-    answers: [
-      ...reactionAnswers(sol, { bar: p.sup === "rope" ? "S" : null }),
-      ans("NA", "N_A", "kN", clean(atA.N), { note: "osna sila ob A, nateg +" }),
-      ans("Mmax", "M_{max}", "kNm", clean(best.M), { note: "+ nateg spodnjih (črtkanih) vlaken" }),
-      ans("x", "x_{max}", "m", xMax, { note: "vodoravno od A" }),
-    ],
+    answers: nearZero(
+      [
+        ...reactionAnswers(sol, { bar: p.sup === "rope" ? "S" : null }).map((a) => (a.key === "S" ? { ...a, note: "sila v vrvi" } : a)),
+        ans("NA", "N_A", "kN", clean(atA.N), { note: "osna sila ob A, nateg +" }),
+        ans("Mmax", "M_{max}", "kNm", clean(best.M), { note: "+ nateg spodnjih (črtkanih) vlaken" }),
+        ans("x", "x_{max}", "m", xMax, { note: "vodoravno od A" }),
+      ],
+      [...sol.reactions.map((r) => r.name), "NA"],
+    ),
     solution: [
       CONVENTION,
       `Dolžina nosilca L = √(${num(p.a)}² + ${num(p.h)}²) = ${num(L)} m, nagib α = ${num((Math.atan2(p.h, p.a) * 180) / Math.PI)}°. Obtežba na meter tlorisa: rezultanta Q = q·${num(p.a)} = ${num(p.q * p.a)} kN (na meter dolžine nosilca je to q·cos α = ${num((p.q * p.a) / L)} kN/m).`,

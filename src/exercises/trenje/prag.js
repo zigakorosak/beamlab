@@ -110,9 +110,12 @@ export const trenjePrag = {
         fig.ground([xE, hm], [xE + 0.9 * rm, hm]);
         fig.circle(C, rm);
         fig.hinge(C);
-        fig.point(C, "C", { dot: false, dx: -8, dy: 18, anchor: "end" });
-        fig.point([xE, hm], "E", { dx: 4, dy: -8 });
-        fig.force(C, -90, { tail: true, world: 0.4 * rm, label: `G = ${q(G, "kN")}` });
+        fig.point(C, "C", { dot: false, dx: -8, dy: 18, anchor: "end", alts: [[-22, 4, "end"], [-22, 20, "end"], [-12, -14, "end"]] });
+
+        // (Not above right: the wheel's rim rises from E there.)
+        fig.point([xE, hm], "E", { dx: -5, dy: 15, anchor: "end", alts: [[7, 15, "start"], [4, -8, "start"], [-6, -6, "end"]] });
+        fig.force(C, -90, { tail: true, world: 0.4 * rm, label: `G = ${q(G, "kN")}`, labelSide: -1, labelAt: "auto" }); // clear of the couple's arrow
+
         if (kind === "vodoravna") fig.force(C, 0, { world: 0.55 * rm, label: "F" });
         if (kind === "pogon") fig.moment(C, false, "M_t");
         fig.dim([-rm, 0], [-rm, 2 * rm], `d = ${q(d, "cm")}`, -22);

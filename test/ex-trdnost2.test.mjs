@@ -46,6 +46,17 @@ test("torzija odseki: equilibrium of torques and twist by segments", () => {
   near(answer(ex, "phi"), Math.abs(deg(phi)));
 });
 
+test("torzija odseki generator: φ_C never a near-cancellation of the two segments' twists", () => {
+  const r = rng(31);
+  for (let n = 0; n < 3000; n++) {
+    const p = torzija.generate(r);
+    if (p.kind !== "odseki") continue;
+    const a = ((p.MB + p.MC) * 1e6 * p.L1 * 1e3) / (80000 * circle(p.D1, p.d).IT);
+    const b = (p.MC * 1e6 * p.L2 * 1e3) / (80000 * circle(p.D2, p.d).IT);
+    assert.ok(Math.max(Math.abs(a), Math.abs(b)) <= 3 * Math.abs(a + b) + 1e-12, JSON.stringify(p));
+  }
+});
+
 test("torzija dim: the two diameters meet τ_dop and φ_dop exactly", () => {
   for (const alpha of [0, 0.6]) {
     const p = { kind: "dim", M: 5, L: 2, tauDop: 60, phiDop: 1, alpha };
@@ -64,6 +75,12 @@ test("torzija nedoločena: M_A + M_B = M_T and equal twist of C from both sides"
   near(MA * 1, MB * 2);
   near(MA, 6);
   near(answer(ex, "phi"), deg((6e6 * 1000) / (80000 * circle(70).IT)));
+});
+
+test("torzija nedoločena: equal reactions don't name one segment as the one with the larger moment", () => {
+  const ex = torzija.build({ kind: "nedolocena", L1: 1.5, L2: 1.5, M: 10, D: 70 });
+  assert.ok(ex.solution.some((l) => l.includes("enaka v obeh odsekih")));
+  assert.ok(!ex.solution.some((l) => l.includes("z večjim momentom")));
 });
 
 // ---------- Tankostenski
@@ -191,6 +208,12 @@ test("strig build: T_max of the beam", () => {
   near(answer(ex, "tmax"), ((1.5 * 15) / 200) * 10);
 });
 
+test("strig: a load at midspan gives equal reactions, T_max at both supports", () => {
+  const ex = strig.build({ beam: { kind: "point", L: 3, F: 40, a: 1.5 }, sec: { kind: "rect", b: 10, h: 20 }, y0: 5 });
+  near(answer(ex, "T"), 20);
+  assert.ok(ex.solution[0].includes("ob obeh podporah"), ex.solution[0]);
+});
+
 // ---------- Tlačna posoda
 
 test("pressure vessel: σ_ob = pd/2t, σ_aks = σ_ob/2, end-cap force, thickness and pressure", () => {
@@ -252,5 +275,16 @@ test("trdnost2 generators: 300 tasks each, positive finite answers, figures buil
       task.figure(figure());
     }
     assert.ok(kinds.size >= 2, `${ex.id}: ${[...kinds]}`);
+  }
+});
+
+test("generator ranges: strig y at least 1 cm inside the section, vessel wall at least 2 mm", () => {
+  const r = rng(99);
+  for (let i = 0; i < 400; i++) {
+    const p = strig.generate(r);
+    if (p.sec.kind === "rect") assert.ok(p.y0 >= 1 && p.y0 <= p.sec.h / 2 - 1, JSON.stringify(p));
+    if (p.sec.kind === "circle") assert.ok(p.y0 >= 1 && p.y0 <= p.sec.d / 2 - 1, JSON.stringify(p));
+    const v = posoda.generate(r);
+    if (v.kind === "debelina") for (const a of posoda.build(v).answers) if (a.key === "tN" || a.key === "t") assert.ok(a.value >= 2, JSON.stringify(v));
   }
 });

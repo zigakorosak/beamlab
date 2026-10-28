@@ -92,7 +92,7 @@ export const trenjeKlanec = {
     }[kind];
 
     const check = `Brez dodatne sile bi telo zdrsnilo: tan α = ${num(Math.tan(rad(alpha)))} > f = ${fs}.`;
-    const fbd = "Prosto telo: teža G (navpično navzdol), normalna sila N (pravokotno na klanec), sila trenja T (vzdolž klanca, nasproti teženemu zdrsu), sila F. Osi: x vzdolž klanca navzgor, y pravokotno na klanec.";
+    const fbd = "Prosto telo: teža G (navpično navzdol), normalna sila N (pravokotno na klanec), sila trenja T (vzdolž klanca, nasproti smeri, v katero bi telo zdrsnilo), sila F. Osi: x vzdolž klanca navzgor, y pravokotno na klanec.";
     const solution = {
       vzporedna: [
         fbd,
@@ -141,8 +141,9 @@ export const trenjeKlanec = {
         drawWedge(fig, alpha, L);
         fig.polygon(blk.pts);
         if (kind === "vodoravna") fig.label(blk.top, weight, { dx: -10, dy: -12, anchor: "end" });
-        else fig.label(blk.down, weight, { dx: -14, dy: -4, anchor: "end" });
-        fig.label(add(mul(dir(alpha), 0.75 * L), mul(blk.n, -0.12)), `f = ${fs}`, { dx: 6, dy: 8, anchor: "start" });
+        else fig.label(blk.down, weight, { dx: -14, dy: -4, anchor: "end", alts: [[-14, -18, "end"], [-6, -24, "end"], [-20, 10, "end"]] });
+        // In the wedge under the slope, or above the slope if that's clearer (a rope, a narrow wedge).
+        fig.label(add(mul(dir(alpha), (kind === "dva" ? 0.6 : 0.75) * L), mul(blk.n, -0.12)), `f = ${fs}`, { dx: 6, dy: 8, anchor: "start", alts: [[-8, 10, "start"], [-14, 26, "middle"], [-10, -14, "end"]] });
         if (kind === "vzporedna") fig.force(blk.up, alpha, { tail: true, world: 0.7, label: "F" });
         if (kind === "vodoravna") fig.force(blk.down, 0, { world: 0.7, label: "F", labelSide: 1 });
         if (kind === "pravokotna") fig.force(blk.top, alpha - 90, { world: 0.7, label: "F", labelSide: -1 });
@@ -166,14 +167,17 @@ export const trenjeKlanec = {
         const b = slopeBlock(alpha, 0, w, h);
         fig.polygon(b.pts);
         fig.dashed(add(b.pts[0], mul(b.u, -0.4)), add(b.pts[1], mul(b.u, 0.4)));
-        fig.force(b.centre, -90, { tail: true, len: 55, label: "G" });
+        fig.force(b.centre, -90, { tail: true, len: 55, label: "G", labelAt: "auto" });
+
         fig.force(b.bottom, alpha + 90, { len: 45, label: "N", cls: "fig-force.fig-unknown", labelSide: -1 });
         fig.force(add(b.bottom, mul(b.u, 0.3)), alpha, { tail: true, len: 45, label: "T", cls: "fig-force.fig-unknown", labelSide: -1 });
         if (kind === "vzporedna" || kind === "dva") fig.force(b.up, alpha, { tail: true, len: 50, label: kind === "dva" ? "S" : "F" });
         if (kind === "vodoravna") fig.force(b.down, 0, { len: 50, label: "F" });
         if (kind === "pravokotna") fig.force(b.top, alpha - 90, { len: 50, label: "F", labelSide: -1 });
         fig.bounds([[-1.3, -1.1], [2.3, 1.9]]);
-        fig.label([b.pts[0][0], b.pts[0][1]], `meja zdrsa navzdol, α = ${round(alpha, 3)}°`, { dy: 40, anchor: "start" });
+        // Centred under the drawing: hanging off a corner it took a phone's width from the block.
+        fig.label([0.5, -1.1], `meja zdrsa navzdol, α = ${round(alpha, 3)}°`, { dy: 16 });
+
       },
     };
   },

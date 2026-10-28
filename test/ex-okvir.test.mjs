@@ -4,6 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { rng } from "../src/exercises/kit.js";
+import { answerOk } from "../src/core/grading.js";
 import { solveFrame, keyValues } from "../src/exercises/okvir/frame.js";
 import { okvirL, lFrameModel } from "../src/exercises/okvir/okvirL.js";
 import { okvirKonzola, konzolaModel } from "../src/exercises/okvir/okvirKonzola.js";
@@ -24,6 +25,7 @@ test("30.1.2012: clamped column with a beam at B — A_x = 13, A_y = 6, M_A = �
   near(answer(ex, "M_A"), -35);
   near(answer(ex, "MAB"), 22);
   near(answer(ex, "Mbeam"), -9);
+  near(answer(ex, "MBC"), 26);
   const sol = solveFrame(konzolaModel(p));
   // Exam fields: column top M = 13·s (26 at B), bottom M = 35 − 13 s, N = −6, beam M = −s²
   near(sol.members.BC.start.M, 26);
@@ -75,6 +77,13 @@ test("28.6.2006: branch 30° above horizontal, G = 800 N at 1,2 m — N = −400
   near(answer(mirrored, "M"), -960);
 });
 
+test("branch: the clamp's couple (+300 Nm) is not written as M_O, which is the internal moment (−300 Nm)", () => {
+  const ex = okvirPosevni.build({ kind: "veja", mirror: false, alpha: 35, p: 1.2, tip: 1.2, G: 250 });
+  near(answer(ex, "M"), -300);
+  const line = ex.solution.find((l) => l.startsWith("Reakcije vpetja"));
+  assert.ok(line.includes("moment vpetja 300 Nm") && !line.includes("M_O"), line);
+});
+
 test("inclined beam, q per horizontal projection: like a simple beam of span a", () => {
   const a = 4, h = 3, qv = 2;
   const ex = okvirPosevni.build({ kind: "streha", mirror: false, a, h, q: qv, sup: "rollerV" });
@@ -117,6 +126,28 @@ test("triangular load on a cantilever: M at the clamp = −qL²/6, T = qL/2", ()
   near(sol.members.AB.start.M, -(qv * L * L) / 6);
   near(sol.members.AB.start.T, (qv * L) / 2);
   near(sol.R.M_A, (qv * L * L) / 6);
+});
+
+test("linear load changing sign (resultant 0): its couple is kept, M at the clamp = qL²/6", () => {
+  const L = 3, qv = 4;
+  const sol = solveFrame({
+    nodes: { A: [0, 0], B: [L, 0] },
+    members: [{ id: "AB", a: "A", b: "B", dashed: "right" }],
+    supports: [{ node: "A", type: "clamp" }],
+    loads: [{ type: "dist", member: "AB", q: qv, q1: -qv, angle: -90 }],
+  });
+  near(sol.R.A_y, 0);
+  near(sol.R.M_A, -(qv * L * L) / 6);
+  near(sol.members.AB.start.M, (qv * L * L) / 6);
+  near(sol.members.AB.start.T, 0);
+  near(sol.members.AB.at(L / 2).M, (qv * L * L) / 12);
+  for (const v of sol.residual) near(v, 0);
+});
+
+test("field count in the solution is Slovenian dual: \"2 polji\"", () => {
+  const ex = okvirPosevni.build({ kind: "streha", mirror: false, a: 4, h: 3, q: 2, sup: "rollerV", F: 3, c: 1 });
+  assert.ok(ex.solution.some((l) => l.includes("2 polji")));
+  assert.ok(!ex.solution.some((l) => l.includes("2 polja")));
 });
 
 test("degenerate supports are rejected", () => {
@@ -190,6 +221,104 @@ test("rope in the inclined-beam task is always in tension", () => {
   for (let i = 0; i < 400; i++) {
     const p = okvirPosevni.generate(r);
     if (p.kind !== "streha" || p.sup !== "rope") continue;
-    assert.ok(solveFrame(strehaModel(p)).R.S > 0.2);
+    const S = solveFrame(strehaModel(p)).R.S;
+    assert.ok(S > 0.2);
+    // Never nearly along the beam: the rope force stays a few times the load at most.
+    assert.ok(S < 3 * (p.q * p.a + (p.F ?? 0)), `rope force ${S}`);
+  }
+});
+
+test("L-frame: the asked extreme is neither tiny nor the corner moment again", () => {
+  const r = rng(7);
+  for (let i = 0; i < 1500; i++) {
+    const ex = okvirL.build(okvirL.generate(r));
+    const mext = ex.answers.find((a) => a.key === "Mext");
+    if (!mext) continue;
+    const mc = ex.answers.find((a) => a.key === "Mc").value;
+    assert.ok(Math.abs(mext.value) >= 0.05 * Math.abs(ex.maxM));
+    assert.ok(Math.abs(mext.value - mc) >= 0.02 * Math.abs(ex.maxM));
+  }
+});
+
+test("no generated answer is so near zero that the opposite sign would be accepted", () => {
+  for (const ex of [okvirL, okvirKonzola, okvirPosevni]) {
+    const r = rng(12345);
+    for (let i = 0; i < 3000; i++) {
+      for (const a of ex.build(ex.generate(r)).answers) {
+        if (Math.abs(a.value) > 1e-9) assert.ok(!answerOk(-a.value, a), `${ex.id}: ${a.key} = ${a.value}`);
+      }
+    }
+  }
+});
+
+test("N, T, M diagrams: values never overlap each other or a panel's title, and the moments at B are all shown", async () => {
+  // Just enough of the DOM for draw.js.
+  class El {
+    constructor(tag) { this.tagName = tag; this.attrs = {}; this.children = []; this.text = ""; this.dataset = {}; }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; }
+    append(...cs) { for (const c of cs) this.children.push(typeof c === "string" ? Object.assign(new El("#text"), { text: c }) : c); }
+    set textContent(v) { this.children = []; this.text = String(v); }
+    get textContent() { return this.text + this.children.map((c) => c.textContent).join(""); }
+    *walk() { for (const c of this.children) { yield c; yield* c.walk(); } }
+    querySelectorAll(sel) { const tags = sel.split(",").map((t) => t.trim()); return [...this.walk()].filter((e) => tags.includes(e.tagName)); }
+  }
+  const saved = globalThis.document;
+  globalThis.document = { createElementNS: (ns, tag) => new El(tag) };
+  try {
+    const { figure } = await import("../src/exercises/draw.js");
+    const { num } = await import("../src/exercises/kit.js");
+    const render = (task, width) => {
+      const f = figure();
+      task.solutionFigure(f);
+      const svg = f.render(width, 440);
+      const texts = [...svg.walk()].filter((e) => e.tagName === "text");
+      // Boxes as drawFrame estimates them: values 6,4 px a character, titles 8.
+      const values = texts.filter((t) => t.attrs.class === "fig-value" && !/[⊕⊖]/.test(t.textContent)).map((t) => {
+        const x = Number(t.attrs.x), y = Number(t.attrs.y), w = t.textContent.length * 6.4;
+        return { text: t.textContent, x0: x, x1: x + w, y0: y - 10, y1: y };
+      });
+      const titles = texts.filter((t) => / \[/.test(t.textContent)).map((t) => {
+        const x = Number(t.attrs.x), y = Number(t.attrs.y);
+        return { text: t.textContent, x0: x, x1: x + t.textContent.length * 8, y0: y - 13, y1: y + 3 };
+      });
+      return { values, titles };
+    };
+    const meet = (a, b) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0;
+    // An L-frame whose T value used to land in the N diagram, on an N value.
+    const strut = okvirL.build({ layout: "top", mirror: true, a: 3.5, h: 3, sup: "strut", beta: 45, ls: 1, qb: 4, qc: 5, qcDir: 1 });
+    const tasks = [strut];
+    for (const ex of [okvirL, okvirKonzola, okvirPosevni]) {
+      const r = rng(4711);
+      for (let i = 0; i < 60; i++) tasks.push(ex.build(ex.generate(r)));
+    }
+    for (const task of tasks) {
+      for (const width of [326, 728]) {
+        const { values, titles } = render(task, width);
+        for (let i = 0; i < values.length; i++) {
+          for (const t of titles) assert.ok(!meet(values[i], t), `${task.title}: ${values[i].text} on ${t.text}`);
+          for (let j = i + 1; j < values.length; j++) assert.ok(!meet(values[i], values[j]), `${task.title}: ${values[i].text} on ${values[j].text}`);
+        }
+        // The graded moments at the node B of the clamped frame are in its M diagram.
+        if (task.title === okvirKonzola.title) {
+          for (const a of task.answers.filter((x) => x.key.startsWith("M") && x.key !== "M_A" && Math.abs(x.value) > 1e-9)) {
+            assert.ok(values.some((v) => v.text === num(a.value)), `${a.key} = ${num(a.value)} missing (${width} px)`);
+          }
+        }
+      }
+    }
+    // A clamped frame whose −16 (beam at B) used to find no free place.
+    const k = okvirKonzola.build({ mirror: false, H: 3, hb: 2.5, b: 4, Fh: 6, FhDir: -1, Fv: 4 });
+    assert.ok(render(k, 728).values.some((v) => v.text === "−16"));
+    // A field whose diagram crosses zero gets both signs: the inclined beam's T
+    // runs from +3,75 to −3,75, its N from −0,82 to +8,55.
+    const st = okvirPosevni.build({ kind: "streha", mirror: true, a: 2, h: 2.5, q: 6, sup: "rope", ropeDir: 105 });
+    const fs = figure();
+    st.solutionFigure(fs);
+    const signs = [...fs.render(728, 440).walk()].filter((e) => e.tagName === "text" && /[⊕⊖]/.test(e.textContent)).map((e) => e.textContent);
+    assert.equal(signs.filter((x) => x === "⊕").length, 3, signs.join(" ")); // N, T, M
+    assert.equal(signs.filter((x) => x === "⊖").length, 2, signs.join(" ")); // N, T
+  } finally {
+    globalThis.document = saved;
   }
 });

@@ -297,6 +297,7 @@ export function renderBuild(root, navigate) {
       svg.append(
         drawModel(m, {
           X: Xm,
+          width,
           selectedId: selected,
           reactions: sol.ok && show.reactions ? sol.reactions : null,
           handles: true,
@@ -467,7 +468,7 @@ export function renderBuild(root, navigate) {
       title = LOAD_LABELS.point;
       rows.push(
         field("Force", item.value, "kN", (v) => edit((it) => (it.value = v)), { min: 0 }),
-        field("Angle", item.angle, "°", (v) => edit((it) => (it.angle = ((((v + 180) % 360) + 360) % 360) - 180))),
+        field("Angle", item.angle, "°", (v) => edit((it) => (it.angle = 180 - ((((180 - v) % 360) + 360) % 360)))), // −180 < angle ≤ 180, so 180 stays ↑
         h(
           "div.inspector-choices",
           {},

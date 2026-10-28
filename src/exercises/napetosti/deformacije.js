@@ -9,7 +9,7 @@
 //             right angle shrinks by γ → ε_x, ε_y, ε_xy = γ/2 → principal
 //             strains, their direction and γ_max (same formulas as stresses).
 
-import { ans, angleAns, num } from "../kit.js";
+import { ans, nearZero, angleAns, num } from "../kit.js";
 import { svgText } from "../draw.js";
 import { s } from "../../render/svg.js";
 import { alphaSteps, par, planeStress } from "./element.js";
@@ -91,14 +91,17 @@ function tensorTask({ ex, ey, ez, exy, E, nu }) {
     figure(f) {
       matrixFigure(f, rows);
     },
-    answers: [
-      ans("lam", "λ", "GPa", lam / 1000),
-      ans("sx", "σ_x", "MPa", sx),
-      ans("txy", "τ_{xy}", "MPa", txy),
-      ans("s1", "σ_1", "MPa", s1),
-      ans("s2", "σ_2", "MPa", s2),
-      ans("s3", "σ_3", "MPa", s3),
-    ],
+    answers: nearZero(
+      [
+        ans("lam", "λ", "GPa", lam / 1000),
+        ans("sx", "σ_x", "MPa", sx),
+        ans("txy", "τ_{xy}", "MPa", txy),
+        ans("s1", "σ_1", "MPa", s1),
+        ans("s2", "σ_2", "MPa", s2),
+        ans("s3", "σ_3", "MPa", s3),
+      ],
+      ["sx", "s1", "s2", "s3"],
+    ),
     solution: [
       `λ = Eν/((1 + ν)(1 − 2ν)) = ${num(E)}·${num(nu)}/(${num(1 + nu)}·${num(1 - 2 * nu)}) = ${num(lam)} MPa = ${num(lam / 1000)} GPa`,
       `G = E/(2(1 + ν)) = ${num(G)} MPa`,
@@ -143,18 +146,21 @@ function gaugeTask({ a, ex, ey, g }) {
       f.label([0.5, 1.18], `Δa_y = ${num(day)} mm`, { dy: -10 });
       f.bounds([[-0.1, -0.1], [1.3, 1.3]]);
     },
-    answers: [
-      ans("e1", "ε_1", U4, st.s1),
-      ans("e2", "ε_2", U4, st.s2),
-      angleAns("alpha", "α", st.alpha, { note: "smer ε₁ od osi x, −90° < α ≤ 90°" }),
-      ans("gmax", "γ_{max}", U4, gmax),
-    ],
+    answers: nearZero(
+      [
+        ans("e1", "ε_1", U4, st.s1),
+        ans("e2", "ε_2", U4, st.s2),
+        angleAns("alpha", "α", st.alpha, { period: 180, note: "smer ε₁ od osi x, −90° < α ≤ 90°" }),
+        ans("gmax", "γ_{max}", U4, gmax),
+      ],
+      ["e1", "e2"],
+    ),
     solution: [
       `ε_x = Δa_x/a = ${num(dax)}/${a} = ${num(ex)}·10^{−4}, ε_y = Δa_y/a = ${num(ey)}·10^{−4}`,
       `γ_{xy} = ${num(g)}·10^{−4} rad (zmanjšanje pravega kota je pozitivno), ε_{xy} = γ_{xy}/2 = ${num(exy)}·10^{−4}`,
       `(ε_x + ε_y)/2 = ${num(st.C)}·10^{−4}, R = √(((ε_x − ε_y)/2)² + ε_{xy}²) = ${num(st.R)}·10^{−4}`,
       `ε_1 = ${num(st.C)} + ${num(st.R)} = ${num(st.s1)}·10^{−4}, ε_2 = ${num(st.C)} − ${num(st.R)} = ${num(st.s2)}·10^{−4}`,
-      ...alphaSteps(ex, ey, exy, { names: ["ε_x", "ε_y", "ε_{xy}"], unit: "·10^{−4}", sigma: "ε_1" }),
+      ...alphaSteps(ex, ey, exy, { names: ["ε_x", "ε_y", "ε_{xy}"], unit: "·10^{−4}", sigma: "ε_1", normal: "ε_N" }),
       `Največja strižna deformacija: ε_T^{max} = (ε_1 − ε_2)/2 = ${num(st.R)}·10^{−4} pri α ± 45°, sprememba pravega kota γ_{max} = 2ε_T^{max} = ε_1 − ε_2 = ${num(gmax)}·10^{−4} rad.`,
     ],
   };

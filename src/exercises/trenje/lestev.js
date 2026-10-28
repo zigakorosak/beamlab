@@ -3,7 +3,8 @@
 //   koef    worker at distance a along the ladder: B_x, B_y and the
 //           smallest friction coefficient f_min so the ladder doesn't slip
 //           (exam: Q = 150 N, L = 4 m, 60°, P = 1000 N at 3 m →
-//           B_x = 476,13 N, B_y = 1150 N, f = 0,4142)
+//           B_x = 476,31 N (the sheet: 476,13, a typo; its f = 0,4142
+//           = 476,31/1150 agrees), B_y = 1150 N)
 //   visina  f is given: how far along the ladder can the worker climb
 // The ladder's foot tends to slide away from the wall, so friction at B
 // points towards the wall.
@@ -40,6 +41,7 @@ export const trenjeLestev = {
       const P = r.step(600, 1000, 50);
       if (kind === "koef") {
         const a = r.step(1, L - 0.5, 0.5);
+        if (Math.abs(a - L / 2) < 0.25) continue; // P on top of Q in the figure
         const R = solveLestev({ Q, P, L, alpha, a });
         if (R.f < 0.08) continue;
         return { kind, Q, P, L, alpha, a };
@@ -75,20 +77,22 @@ export const trenjeLestev = {
         fig.ground([0, 0], [0, A[1] + 0.6]); // the wall, hatched on its right
         fig.ground([B[0] - 0.6, 0], [0, 0]);
         fig.member(B, A);
-        fig.point(B, "B", { dx: -6, dy: 16, anchor: "end" });
+        fig.point(B, "B", { dx: -6, dy: 24, anchor: "end", alts: [[-8, -6, "end"], [-22, 24, "end"]] }); // below the hatching
         fig.point(A, "A", { dx: 14, dy: -6 });
         fig.angle(B, 0, alpha, `${alpha}°`, 24);
         // Both weights drawn from above (labels over the arrows), so the
         // space between ladder and wall stays free for the dimension a.
         // (values in the text; short labels keep the narrow sketch readable)
-        fig.force(along(L / 2), -90, { world: 0.13 * L, label: "Q", labelSide: -1 });
-        fig.force(along(xDraw), -90, { world: 0.24 * L, label: "P", labelAt: "end" });
+        fig.force(along(L / 2), -90, { world: 0.13 * L, label: "Q", labelSide: -1, labelAt: "auto" });
+        fig.force(along(xDraw), -90, { world: 0.24 * L, label: "P", labelAt: "auto" });
         fig.dim(B, A, `L = ${q(L, "m")}`, -30);
-        fig.dim(B, along(xDraw), koef ? `a = ${q(p.a, "m")}` : "x = ?", 26);
-        if (!koef) fig.label(B, `f = ${num(p.f)}`, { dx: -16, dy: -6, anchor: "end" });
+        fig.dim(B, along(xDraw), koef ? `a = ${q(p.a, "m")}` : "x = ?", 40); // clear of the angle's label
+
+        if (!koef) fig.label(B, `f = ${num(p.f)}`, { dx: -16, dy: -6, anchor: "end", alts: [[-12, -22, "end"], [-34, -6, "end"], [-30, -24, "end"]] });
+
       },
       answers: koef
-        ? [ans("Bx", "B_x", "N", R.Bx), ans("By", "B_y", "N", R.By), ans("f", "f_{min}", "", R.f)]
+        ? [own(ans("Bx", "B_x", "N", R.Bx)), ans("By", "B_y", "N", R.By), ans("f", "f_{min}", "", R.f)]
         : [ans("x", "x", "m", R.x), own(ans("Bx", "B_x", "N", R.Bx))],
       solution: [
         "Prosto telo lestve: v A gladka stena → samo vodoravna reakcija A (od stene); v B reakcija tal B_y (navzgor) in trenje B_x. Noga lestve teži stran od stene, zato B_x kaže proti steni.",
@@ -111,8 +115,10 @@ export const trenjeLestev = {
         fig.force(A, 180, { tail: true, len: 50, label: "A", cls: "fig-force.fig-unknown", labelAt: "end" });
         fig.force(B, 90, { len: 50, label: "B_y", cls: "fig-force.fig-unknown", labelAt: "end" });
         fig.force(B, 0, { tail: true, len: 50, label: "B_x", cls: "fig-force.fig-unknown", labelAt: "end" });
-        fig.force(along(L / 2), -90, { tail: true, len: 36, label: "Q", labelAt: "end" });
-        fig.force(along(xDraw), -90, { tail: true, len: 46, label: "P", labelAt: "end" });
+        // (P close to the middle: the two labels side by side otherwise.)
+        fig.force(along(L / 2), -90, { tail: true, len: 36, label: "Q", labelAt: "auto", labelSide: -1 });
+        fig.force(along(xDraw), -90, { tail: true, len: 46, label: "P", labelAt: "auto" });
+
         fig.angle(B, 0, alpha, "α", 26);
       },
     };

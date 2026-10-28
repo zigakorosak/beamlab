@@ -163,7 +163,8 @@ function buildSteber(p) {
       fig.rect(-r - 0.35, -2.2, 0.7, 0.6);
       fig.label([-r - 0.35, -1.9], `Q = ${q(Q, "N")}`, { dx: -8, dy: 4, anchor: "end" });
       fig.line([r, 0], [r, -1.3]);
-      fig.force([r, -1.3], -90, { tail: true, world: 0.6, label: ovoji ? `F = ${q(p.F, "N")}` : "F", labelSide: -1 });
+      fig.force([r, -1.3], -90, { tail: true, world: 0.6, label: ovoji ? `F = ${q(p.F, "N")}` : "F", labelSide: ovoji ? 1 : -1, labelAt: ovoji ? "auto" : "side" }); // a long label would reach the weight
+
       fig.label([0, r], ovoji ? `f = ${num(f)}, n = ?` : `f = ${num(f)}, n = ${n}`, { dy: -12 });
     },
     answers,

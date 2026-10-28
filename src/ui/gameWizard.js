@@ -11,7 +11,7 @@ import { BEAM_TYPES, LEVELS } from "../core/generator.js";
 import { choiceScreen } from "./screenKit.js";
 
 export const TASKS = [
-  { id: "full", label: "Full solution", desc: "Reactions, then the shear and moment diagrams" },
+  { id: "full", label: "Full solution", desc: "Reactions, then the diagrams: N (with an inclined force), V and M" },
   { id: "reactions", label: "Support reactions", desc: "Find the reaction forces and moments" },
   { id: "V", label: "Shear force diagram", desc: "Reactions given: draw V(x)" },
   { id: "M", label: "Bending moment diagram", desc: "Reactions given: draw M(x)" },
