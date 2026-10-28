@@ -23,6 +23,7 @@ import { s } from "../render/svg.js";
 import { h } from "./dom.js";
 import { createHamburgerMenu } from "./hamburgerMenu.js";
 import { createDiagramEditor } from "./diagramEditor.js";
+import { boxText, selectOnFocus, wheelSteps } from "./inputKit.js";
 
 // After the last stage, the report's buttons ignore clicks this long (ms),
 // so a quick second click on "See Results" doesn't skip the report.
@@ -31,45 +32,6 @@ const REPORT_GUARD_MS = 500;
 const STAGE_NAMES = { reactions: "Reactions", N: "Axial force", V: "Shear force", M: "Bending moment" };
 
 const seconds = (ms) => `${(ms / 1000).toFixed(1)}s`;
-
-/** The text in a number box, as typed: plain "-", no "−". */
-const boxText = (v) => fmt(v).replace("−", "-");
-
-/** Focusing a box selects its text, so typing replaces it. A click would
- *  put the caret back on mouseup, so the mouseup right after focus is eaten.
- *  Hovering a box with the mouse focuses it too, no click needed. */
-function selectOnFocus(input) {
-  let justFocused = false;
-  input.addEventListener("pointerenter", (e) => {
-    if (e.pointerType !== "mouse" || input.readOnly || document.activeElement === input) return;
-    input.focus({ preventScroll: true });
-  });
-  input.addEventListener("focus", () => {
-    input.select();
-    justFocused = true;
-  });
-  input.addEventListener("mouseup", (e) => {
-    if (justFocused) e.preventDefault();
-    justFocused = false;
-  });
-  input.addEventListener("blur", () => (justFocused = false));
-}
-
-/** Scrolling over a box steps its value: `onStep(+1 | −1, e)`. */
-function wheelSteps(input, onStep) {
-  input.addEventListener(
-    "wheel",
-    (e) => {
-      if (input.readOnly) return;
-      // Firefox turns Shift+wheel into a sideways scroll, so look at both.
-      const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-      if (!d) return;
-      e.preventDefault();
-      onStep(d < 0 ? 1 : -1, e);
-    },
-    { passive: false },
-  );
-}
 
 // The last pointer kind, so selecting a dot by touch doesn't pop up the
 // phone keyboard (focusing the value box would).

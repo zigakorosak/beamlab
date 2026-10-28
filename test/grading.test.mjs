@@ -24,3 +24,9 @@ test("exact means right to the printed two decimals", () => {
   assert.ok(isExact(15.63, 15.625));
   assert.ok(!isExact(15.6, 15.625));
 });
+
+test("a tiny floor makes small answers count to 5 % too", () => {
+  assert.ok(closeEnough(0.06, 0.0588, 0.1607, 0, 1e-6));
+  assert.ok(!closeEnough(0.1, 0.0588, 0.0588, 0, 1e-6));
+  assert.ok(!closeEnough(0.3, 0.25, 0.25, 0, 1e-6)); // f = 0.25: 0.3 is 20 % off
+});

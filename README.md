@@ -23,6 +23,16 @@ at **zigakorosak.com/beamlab**.
   key points. Every answer is graded, the exact diagram is drawn over
   yours, and the reactions come with the equilibrium equations.
 - **Practice this** in Build turns your own beam into a question.
+- **Izpitne naloge** (exam exercises, in Slovenian): the problem types of
+  the "Osnove mehanike" exams at NTF Ljubljana, with new numbers every
+  time, an exam-style figure, graded results and a worked solution:
+  - statics: forces at a point, 2D/3D reduction, reactions and contacts,
+    friction (incline, blocks, ladder, step, rope), cables, centroids,
+    beam and frame N-T-M diagrams;
+  - strength: cross-sections, Mohr's circle, inclined cuts, strain →
+    stress, axial bars, failure hypotheses, bending and shear stress,
+    torsion, buckling, pressure vessels, combined loading;
+  - a mock exam: 3 problems for 30 + 35 + 35 points, 90 minutes.
 - Statically determinate and indeterminate beams (continuous, propped,
   fixed–fixed), Gerber beams with hinges, and unstable set-ups explained
   ("nothing stops the beam sliding sideways").
@@ -43,7 +53,7 @@ beam formulas by `npm test`.
 ```bash
 npm install
 npm run dev       # dev server at http://localhost:5173/beamlab/
-npm test          # solver checks against the beam-formula tables
+npm test          # solver + exercise checks (beam tables, worked exam solutions)
 npm run build     # production build into dist/
 npm run preview   # serve the production build locally
 ```
@@ -76,11 +86,13 @@ secrets) is in `DESIGN.md` → "Deployment".
 src/
   core/       — model, solver, problem generator, equilibrium text, settings
   render/     — SVG drawing: beam + loads, diagrams, shared board layout
-  ui/         — screens: home, wizard, game, Build, settings, how to play
+  exercises/  — exam exercises: kit, figure kit, registry, one folder per topic group
+  ui/         — screens: home, wizard, game, Build, exercises, settings, how to play
   main.js     — top-level screen router
 test/         — solver checks (node --test)
 scripts/      — archive and release scripts
-reference/    — GeoQuiz / Anatomy Quiz sources and beam-calculator pages (local only, gitignored)
+reference/    — GeoQuiz / Anatomy Quiz sources, beam-calculator pages, the Osnove mehanike
+                course notes and exam photos (reference/4) (local only, gitignored)
 ```
 
 ## Docs conventions

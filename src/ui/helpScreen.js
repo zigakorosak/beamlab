@@ -35,6 +35,14 @@ const SECTIONS = [
     ],
   ],
   [
+    "Izpitne naloge (exam exercises)",
+    [
+      "Exercises like the Osnove mehanike exams at NTF Ljubljana, in Slovenian: pick a topic for endless tasks, or Poskusni izpit for a timed mock exam of three problems (30 + 35 + 35 points).",
+      "Type each result in the unit shown and press Preveri (Enter). Within about 5 % counts as right. Rešitev shows the worked solution and, where it helps, the diagrams or Mohr's circle.",
+      "Signs follow the course: tension positive, M positive when the lower (dashed) fibre is in tension and drawn on the tension side, I_xy = −∫xy dA. Each task says which direction counts as positive.",
+    ],
+  ],
+  [
     "Sign conventions",
     [
       "Units: metres, kN, kN/m and kNm.",

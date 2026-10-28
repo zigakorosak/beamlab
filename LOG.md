@@ -2,6 +2,47 @@
 
 Newest first. What changed and why.
 
+## 2026-10-27: Izpitne naloge (exam exercises)
+
+User request: "i added new reference. i want the app to be able to give me
+exercises so that i can pass any exam". The new reference (`reference/4/om`)
+is the "Osnove mehanike" course at NTF Ljubljana: notes, a textbook and 64
+photos of past exams. Asked two questions: language → Slovenian with the
+course's notation; scope → both statics and strength.
+
+- Catalogued every exam photo (4 parallel agents): ~30 exams, ~85
+  problems, with the worked answers where the photo had them. Most
+  frequent: N-T-M of beams and frames (~25), friction (~14), reactions and
+  contacts (~14), bending stress (~9, on every recent exam).
+- Built the framework: `exercises/kit.js` (exercise shape, seeded rng,
+  `num()` with a decimal comma, sub/superscript markup), `exercises/draw.js`
+  (exam-style figure kit in world units), `exercises/registry.js`,
+  `ui/exercises.js` (topic menu, runner, mock exam 30/35/35 points, 90 min),
+  `ui/inputKit.js` (the number-box helpers moved out of game.js).
+- 37 exercises, written by 7 parallel agents against a shared brief plus my
+  beam N-T-M one (`nosilec/beamNtm.js`, on the core solver): see DESIGN.md
+  "Izpitne naloge" for the list. Frames got their own solver
+  (`okvir/frame.js`); cross-sections a section module (`prerez/section.js`).
+- Tests: every exercise's build() against the worked exam answers (and the
+  notes' examples where no exam answer exists), plus 300–1000 random draws
+  each checking the physics independently (equilibrium residuals,
+  eigenvalues, compatibility, dM/ds = T, grid integration of sections…).
+  `npm test`: 115 passing.
+- Found errors in the sources (the code follows the physics; DESIGN.md
+  lists them): the 28.1.2015 rod solution (23,39° for 26,39°), two
+  course-note examples (torsion spring M_t, welded tube W_T), the notes'
+  two meanings of I_1.
+- Grading: `closeEnough` got a `floor` argument; the exercises use none,
+  so 0,06 kN/cm² or f = 0,15 are also judged to 5 % (the old ±0,05 floor
+  was 30 % there). "Exact" is judged by the printed digits.
+- Figure margins: per side, from each item's own room (labels by text
+  width), settled in a few rounds; phones get taller figures. Beam loads
+  that overlap are stacked; labels avoid arrows.
+- Checked in Firefox at 1280 and 390 px: all 37 topics twice with their
+  solutions, and a mock exam through to the summary; no page errors. The
+  dev server stayed off (low memory): built to a scratch folder and served
+  it to Playwright with `page.route` (`scratch-serve.mjs`, gitignored).
+
 ## 2026-10-20: First deploy; test glob
 
 User request: deploy. The first run failed at `npm test`: the runner's

@@ -80,3 +80,18 @@ printed model, a probe of what's under the pointer) before the next fix.
   which reads the directory as a single file `test` and fails. Use a glob
   (`node --test "test/*.test.mjs"`). Local Node is newer than CI's: a
   passing `npm test` here doesn't prove CI passes.
+- `cd somewhere && rm -f relative/*` is blocked by the safety check (the
+  target can't be resolved statically). Use absolute paths, or write to a
+  new folder instead of clearing an old one.
+
+## Sources aren't always right
+
+- Handwritten exam solutions and even the course notes contain slips
+  (an angle written 23,39° for 26,39°, a misprinted moment, a wrong W_T
+  formula, I_1 meaning two things). When a worked answer disagrees with
+  the physics, recompute it independently before "fixing" the code to
+  match, and record the disagreement (DESIGN.md "Izpitne naloge").
+- Parallel agents editing one shared file (`registry.js`) worked because
+  each re-read it right before adding its own lines. Shared kit changes
+  were kept to me, after reading their reports; their own workarounds
+  (world-length arrows, shorter labels) stay valid with the new margins.

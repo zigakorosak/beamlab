@@ -5,6 +5,7 @@ import { renderGame } from "./ui/game.js";
 import { renderBuild } from "./ui/build.js";
 import { renderSettings } from "./ui/settingsScreen.js";
 import { renderHelp } from "./ui/helpScreen.js";
+import { renderExerciseMenu, renderExercise } from "./ui/exercises.js";
 
 // Top-level screen router. Each screen is a function (root, navigate, ...args)
 // that fills `root` and may return a cleanup function, run when the next
@@ -16,6 +17,8 @@ const screens = {
   build: renderBuild,
   settings: renderSettings,
   help: renderHelp,
+  exercises: renderExerciseMenu,
+  exercise: renderExercise,
 };
 
 const root = document.getElementById("app");

@@ -3,11 +3,14 @@
 ## Goal
 
 A browser game for learning statics of beams: support reactions, and the
-axial force (N), shear force (V) and bending moment (M) diagrams. Two
+axial force (N), shear force (V) and bending moment (M) diagrams. Three
 ways in:
 
 - **Build**: a sandbox. Drag elements onto a grid, see the answers live.
 - **Practice**: the game. Solve generated beams yourself, get graded.
+- **Izpitne naloge** (exam exercises): the problem types of the
+  "Osnove mehanike" exams (NTF, University of Ljubljana), statics and
+  strength of materials, in Slovenian, with a mock exam. See below.
 
 Same look, habits and project setup as GeoQuiz and Anatomy Quiz (their
 sources are in `reference/1` and `reference/2`). `reference/3` holds the
@@ -16,7 +19,8 @@ pinned, roller, fixed; loads: point, distributed, moment) and the
 "beam formulas with shear and moment diagrams" table, which `npm test`
 checks the solver against.
 
-Metric only: m, kN, kN/m, kNm. English UI.
+Metric only: m, kN, kN/m, kNm. English UI, except the exam exercises,
+which are in Slovenian with the course's notation (the user's choice).
 
 ## Tech stack
 
@@ -56,9 +60,16 @@ src/
     diagramEditor.js — the player's diagram: draggable dots, grading
     build.js      — Build: palette, drag & drop, inspector, undo, live diagrams
     settingsScreen.js, helpScreen.js
+    exercises.js  — Izpitne naloge: topic menu, exercise runner, mock exam
+    inputKit.js   — number boxes: select on focus/hover, wheel steps (Practice + exercises)
+  exercises/      — the exam exercises (see "Izpitne naloge" below)
+    kit.js, draw.js, registry.js
+    statika/ telo/ trenje/ nosilec/ okvir/ prerez/ napetosti/ trdnost2/
   main.js         — top-level screen router; screens may return a cleanup function
 test/
   solver.test.mjs — 18 checks against the beam-formula tables, equilibrium, stability
+  grading.test.mjs, exercises.test.mjs, ex-*.test.mjs — grading, and every exercise
+                    against worked exam / course-note solutions plus random-draw physics checks
 ```
 
 ### The model (`core/model.js`)
@@ -234,6 +245,79 @@ full solution, diagrams already done stay up (solved, faint) as help.
   Back / Home, inert for the first 500 ms (`REPORT_GUARD_MS`, as in
   Anatomy Quiz).
 
+### Izpitne naloge (`ui/exercises.js`, `exercises/`)
+
+Added 2026-10-27 from `reference/4/om/`: the course notes ("Osnove
+mehanike": `vodic_za_naloge.md`, `viri/vse_enacbe_in_postopki.md`,
+`viri/a/*.md`, cross-sections in `viri/trdnost md/`), a textbook PDF, and
+64 photos of past exams (NTF Statika / Mehanika I / Osnove mehanike,
+2004–2016, ~30 exams, ~85 problems). Every photo was catalogued (type,
+data, worked answers); the recent exams have three problems, 30 + 35 + 35
+points: a statics/reactions problem, an N-T-M problem (beam or frame) and
+a strength problem (bending stress, stress state, …).
+
+**Exercise modules.** Each is `{ id, group, title, desc, generate(rng),
+build(params) }` (`exercises/kit.js`). `generate` draws exam-like numbers
+(whole kN, half metres, 5°/15° angles) and rejects degenerate cases;
+`build` is pure and returns `{ title, text[], figure(f), answers[],
+solution[], solutionFigure? }`. Tests feed the numbers of a real exam to
+`build` and compare with its worked solution. Text and figures follow the
+exam sheets; numbers print with a decimal comma (`num()`), labels use a
+small markup (`A_y`, `M_{max}`) rendered as sub/superscripts.
+
+**Conventions** (from the notes): N tension +; T (shear) and M as in the
+beam solver (dT/dx = −q, dM/dx = T), M drawn on the tension side; frames
+use the "dashed fibre" (črtkano vlakno) per member; I_xy = −∫xy dA;
+σ_N = (σx+σy)/2 + (σx−σy)/2·cos2φ + τxy·sin2φ, tan 2α = 2τxy/(σx−σy);
+rope friction S1 = S2·e^{fδ}; parabolic cable z = q x²/(2H) from the
+vertex; g = 9,81 m/s² unless an exam used 10.
+
+**Figures** (`exercises/draw.js`): a figure is described in world units
+(m or cm, y up) with members, ropes, hatched ground, pin / roller /
+clamped supports, force arrows (pixel or world length), distributed
+loads, couples, dimension lines, angle arcs, labels and `iso()` for 3D
+boxes. Pixel-sized decorations are closures drawn once the scale is
+known; each reserves room per side (labels by their text width), and
+`render()` settles the scale and the four margins in a few rounds, capped
+so a phone keeps most of its width for the drawing.
+
+**Runner.** Topic menu grouped Statika / Trdnost in the course's order,
+plus "Poskusni izpit": one exercise per slot (1 statics, 2 N-T-M,
+3 strength), 30/35/35 points shared by the fraction of right results,
+90-minute countdown, pass mark 50 %. Answers are typed (select on focus
+or hover, wheel steps); Preveri grades them with `closeEnough` (5 % of the
+value or 3 % of the largest answer with the same unit, no absolute floor;
+angles ±1°); Rešitev shows the worked solution and the solution figure
+(N-T-M diagrams, Mohr's circle, force triangles, …).
+
+**Topics (37).** Statika: forces at a point (F4 for equilibrium, knot on
+two ropes), 2D and 3D reduction (+ moment about an axis), reactions and
+contacts (rod on a half-cylinder, beam with cylinder on a half-cylinder,
+sphere on a rope at a wall or in a corner, bar on a rope over a pulley,
+two bars with a pulley), friction (incline, stacked blocks, ladder, wheel
+over a step, rope friction), parabolic cables, centroid tipping,
+Pappus–Guldin, beam N-T-M (core solver), frames (L-frames, clamped
+column with beam, inclined beam / branch; own solver `okvir/frame.js`
+for statically determinate plane frames with hinges, ropes and any load
+direction). Trdnost: section properties (incl. principal axes), Mohr and
+the inverse task, stresses on an inclined cut, strain tensor → stresses,
+axial bars (statically indeterminate, thermal, gap), two bars sized for
+σ_dop, failure hypotheses, bending stress and dimensioning (section
+module `prerez/section.js`), shear stress τ = T·S*/(I·b), torsion (solid,
+hollow, stepped, both ends clamped) and thin-walled sections, buckling
+(Euler / Tetmajer, four support cases), thin-walled pressure vessels,
+bending + torsion.
+
+**Known disagreements with the sources** (the code follows the physics,
+the tests say why): the 28.1.2015 rod-on-half-cylinder solution uses
+φ = 23,39° where sin φ = 0,8/1,8 gives 26,39° (B = 109,0 N, not 111,71);
+the course notes' torsion-spring example prints M_t = 1,179·10⁵ Nmm
+(their inputs give 1,171·10⁵); the welded-tube example uses W_T =
+π/2·(R³ − r³) (correct: π(R⁴ − r⁴)/(2R)); the notes call the moment about
+the α_G axis I_1 in the examples but define I_1 as the larger one in §7
+(here I_1 is always the larger); one 1994 solution uses I_xy = +ΣA·x·y;
+the 30.1.2012 frame solution has T of the wrong sign in one field.
+
 ### Interface
 
 GeoQuiz / Anatomy Quiz's dark palette and classes (`menu-screen`,
@@ -248,8 +332,9 @@ Settings (`beamlab-settings`): "Bending moment diagram": Positive up
 
 ## Current scope (v1)
 
-Straight horizontal beams only, uniform EI, no settlement or springs.
-No frames, trusses or inclined members. Not tried on a physical phone.
+Build and Practice: straight horizontal beams only, uniform EI, no
+settlement or springs. Frames exist only in the exam exercises (numbers +
+solution diagrams, not drawn by the player). Not tried on a physical phone.
 
 ## Possible next steps
 
@@ -260,7 +345,10 @@ No frames, trusses or inclined members. Not tried on a physical phone.
 - Practice modes: "find the maximum moment and where", "which diagram
   belongs to this beam" (multiple choice), a deflected-shape sketch.
 - Step-by-step hints during a stage (e.g. "the jump at B equals By").
-- Slovenian translation.
+- Slovenian translation of Build / Practice (the exam exercises already are).
+- Exercises: Gerber beams and three-hinged frames, trusses (method of
+  joints / Ritter), drawing the N-T-M diagrams of an exercise with the
+  Practice dot editor, a "weak topics" record across mock exams.
 
 ## Project conventions
 
