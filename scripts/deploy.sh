@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Trigger the manual-only deploy workflow and wait for it, reporting pass/fail.
+# Start the deploy workflow by hand (it also runs on every push to main) and wait for it.
 set -euo pipefail
 
 workflow="Deploy to Namecheap"

@@ -1,17 +1,30 @@
 name: Deploy to Namecheap
 
-# Manual only — run from the Actions tab or `gh workflow run "Deploy to Namecheap"`.
+# Runs on every push to main (except docs-only pushes), or by hand from the
+# Actions tab / `gh workflow run "Deploy to Namecheap"` (scripts/deploy.sh).
+
 on:
+  push:
+    branches: [main]
+    # Docs-only pushes (README/DESIGN/LOG/MISTAKES) don't change the build.
+    paths-ignore:
+      - "**.md"
   workflow_dispatch:
+
+# Never run two uploads to the same folder at once; a newer push waits for
+# the running deploy instead of cancelling it mid-upload.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
       - run: npm ci
       - run: npm test

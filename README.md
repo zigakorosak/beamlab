@@ -69,7 +69,8 @@ into `archive/<timestamp>_<label>.tar.gz`, keeping the 10 most recent.
 
 ## Deployment
 
-Deploys are **manual only**. Pushing to `main` does not trigger anything.
+Every push to `main` deploys automatically (pushes that only change `.md`
+files are skipped). To deploy by hand:
 
 ```bash
 gh workflow run "Deploy to Namecheap"   # or scripts/deploy.sh, which also waits for the result

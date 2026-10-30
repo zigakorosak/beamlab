@@ -415,9 +415,9 @@ solution diagrams, not drawn by the player). Not tried on a physical phone.
 
 Target: `zigakorosak.com/beamlab/` on Namecheap shared hosting (cPanel),
 the same host as GeoQuiz and Anatomy Quiz. `.github/workflows/deploy.yml`
-runs `npm test`, builds on GitHub's runner and FTPS-uploads `dist/`. It is
-**manual only** (`workflow_dispatch`): run it from the Actions tab or with
-`gh workflow run "Deploy to Namecheap"`.
+runs `npm test`, builds on GitHub's runner and FTPS-uploads `dist/`. It runs
+on every push to `main` (except `.md`-only pushes), or by hand from the
+Actions tab or with `gh workflow run "Deploy to Namecheap"`.
 
 `vite.config.js` sets `base: "/beamlab/"`. If the deploy path changes,
 that line must change to match.
