@@ -10,7 +10,7 @@
 // diagram over the player's, the equilibrium equations) → Next. One point
 // per stage that's entirely right.
 
-import { generateProblem, BEAM_TYPES } from "../core/generator.js";
+import { generateCustomProblem, generateProblem, BEAM_TYPES } from "../core/generator.js";
 import { momentExtrema, solve } from "../core/solver.js";
 import { equilibriumSteps } from "../core/explain.js";
 import { loadSettings } from "../core/settings.js";
@@ -84,10 +84,15 @@ export function renderGame(root, navigate, config, backState) {
   function nextRound() {
     round++;
     if (round >= config.rounds) return showSummary();
-    model = config.models ? structuredClone(config.models[round % config.models.length]) : generateProblem(config.type, config.level);
+    const custom = config.custom;
+    model = config.models
+      ? structuredClone(config.models[round % config.models.length])
+      : custom
+        ? (generateCustomProblem(custom) ?? generateProblem("simple", "medium"))
+        : generateProblem(config.type, config.level);
     sol = solve(model);
-    stages =
-      config.task === "full" ? ["reactions", ...(sol.hasAxial ? ["N"] : []), "V", "M"] : [config.task];
+    const task = custom ? custom.tasks[Math.floor(Math.random() * custom.tasks.length)] : config.task;
+    stages = task === "full" ? ["reactions", ...(sol.hasAxial ? ["N"] : []), "V", "M"] : [task];
     stageIndex = 0;
     const label = config.models ? "Your beam" : (BEAM_TYPES.find((t) => t.id === model.kind)?.label ?? "Beam");
     records.push({ label, stages: [], time: 0 });
@@ -113,7 +118,7 @@ export function renderGame(root, navigate, config, backState) {
     }
     progress.textContent = `Beam ${round + 1} / ${config.rounds}`;
     stageChip.textContent = STAGE_NAMES[st];
-    stageChip.hidden = stages.length < 2;
+    stageChip.hidden = stages.length < 2 && !(config.custom?.tasks.length > 1);
     scoreEl.textContent = `Score: ${score}`;
     actionButton.textContent = "Confirm";
     feedbackArea.replaceChildren();

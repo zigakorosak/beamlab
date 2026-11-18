@@ -2,6 +2,25 @@
 
 Newest first. What changed and why.
 
+## 2026-11-18: Custom practice and any number of beams
+
+Practice now asks first: **Quick practice** (the wizard as it was) or
+**Custom practice**, one form of checkboxes: any mix of tasks (each beam
+gets one at random), beam types, and load kinds with an amount (1–3) each,
+plus "Vary the amounts" and "Whole metres only". Both modes have a
+beam-count slider (1–50) that also steps on the mouse wheel; Quick keeps
+its 3 / 5 / 10 buttons above it. New `generateCustomProblem` builds the
+beams; cantilevers there run 3–8 m so the largest choices still fit (with
+2–4 m whole-metre cantilevers, 3 forces + 3 inclined never fitted).
+New test: 600 custom beams with the exact amounts asked for, forces and
+moments on their own spots, no overlapping spans, whole metres when
+asked, always solvable.
+
+Checked in Firefox (Playwright) at 1280 and 390 px: both modes, wheel on
+the slider, the empty-tasks message, a 2-beam custom game with mixed
+tasks (stage chip shown), and ☰/summary Back reopening the form with the
+choices kept. No console errors.
+
 ## 2026-10-30: Deploy on every push
 
 Deploy on push. `.github/workflows/deploy.yml` now also runs on every push

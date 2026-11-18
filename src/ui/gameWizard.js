@@ -1,6 +1,7 @@
 // The Practice flow: a sequence of choice screens, worded and laid out like
 // GeoQuiz's wizard, ending in a game config handed to the game screen:
-//   task → beam type → difficulty → rounds → play.
+//   quick:  task → beam type → difficulty → rounds → play
+//   custom: one form of checkboxes and amounts → play (customPractice.js)
 //
 // Steps are named ({ name }) rather than closures, so the whole position —
 // config, history, current step — can be handed to the game and back
@@ -9,6 +10,8 @@
 
 import { BEAM_TYPES, LEVELS } from "../core/generator.js";
 import { choiceScreen } from "./screenKit.js";
+import { h } from "./dom.js";
+import { beamCountSlider, loadCustom, renderCustomPractice } from "./customPractice.js";
 
 export const TASKS = [
   { id: "full", label: "Full solution", desc: "Reactions, then the diagrams: N (with an inclined force), V and M" },
@@ -22,7 +25,7 @@ const ROUNDS = [3, 5, 10];
 export function renderWizard(root, navigate, resume = null) {
   const config = { ...(resume?.config ?? {}) };
   const history = [...(resume?.history ?? [])];
-  let current = resume?.current ?? { name: "task" };
+  let current = resume?.current ?? { name: "mode" };
 
   const show = () => steps[current.name](current);
   const go = (step) => {
@@ -38,7 +41,33 @@ export function renderWizard(root, navigate, resume = null) {
   };
   const screen = (opts) => choiceScreen(root, { onBack: back, ...opts });
 
+  const play = () => navigate("game", { ...config }, { config: { ...config }, history: [...history], current });
+
   const steps = {
+    mode() {
+      screen({
+        title: "Practice",
+        options: [
+          { label: "Quick practice", desc: "Pick a task, a beam and the loads", onSelect: () => go({ name: "task" }) },
+          {
+            label: "Custom practice",
+            desc: "Tick any mix of tasks, beams and loads, and how many of each",
+            onSelect: () => go({ name: "custom" }),
+          },
+        ],
+      });
+    },
+    custom() {
+      renderCustomPractice(root, {
+        initial: config.customForm ?? loadCustom(),
+        onBack: back,
+        onStart: (game, form) => {
+          for (const k of ["task", "type", "level"]) delete config[k];
+          Object.assign(config, game, { customForm: form });
+          play();
+        },
+      });
+    },
     task() {
       screen({
         title: "What do you want to practise?",
@@ -46,6 +75,7 @@ export function renderWizard(root, navigate, resume = null) {
           label: t.label,
           desc: t.desc,
           onSelect: () => {
+            delete config.custom;
             config.task = t.id;
             go({ name: "type" });
           },
@@ -79,15 +109,23 @@ export function renderWizard(root, navigate, resume = null) {
       });
     },
     rounds() {
+      let custom = config.rounds ?? 7;
       screen({
         title: "How many beams?",
         options: ROUNDS.map((n) => ({
           label: String(n),
           onSelect: () => {
             config.rounds = n;
-            navigate("game", { ...config }, { config: { ...config }, history: [...history], current });
+            play();
           },
         })),
+        footer: h(
+          "section.custom-count",
+          {},
+          h("h2", {}, "Or any number"),
+          beamCountSlider(custom, (v) => (custom = v)),
+          h("button.menu-option.wizard-option", { type: "button", onclick: () => ((config.rounds = custom), play()) }, h("span", {}, "Start")),
+        ),
       });
     },
   };

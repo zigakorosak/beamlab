@@ -258,6 +258,33 @@ test("generator: distributed loads never overlap (two equal ones would look like
     }
 });
 
+test("custom generator: exact amounts, own spots, no overlapping spans, always solvable", async () => {
+  const { generateCustomProblem, BEAM_TYPES, LOAD_KINDS } = await import("../src/core/generator.js");
+  let seed = 29;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const types = BEAM_TYPES.filter((t) => t.id !== "mixed").map((t) => t.id);
+  for (let i = 0; i < 600; i++) {
+    const loads = Object.fromEntries(LOAD_KINDS.map(({ id }) => [id, Math.floor(rnd() * 4)]));
+    if (!Object.values(loads).some(Boolean)) loads.point = 1;
+    const whole = rnd() < 0.5;
+    const m = generateCustomProblem({ types: [types[i % types.length]], loads, whole }, rnd);
+    assert.ok(m, JSON.stringify(loads));
+    assert.ok(solve(m).ok);
+    const count = (f) => m.loads.filter(f).length;
+    assert.equal(count((l) => l.type === "point" && !l.angle), loads.point);
+    assert.equal(count((l) => l.type === "point" && l.angle), loads.inclined);
+    assert.equal(count((l) => l.type === "dist" && l.q1 === l.q2), loads.udl);
+    assert.equal(count((l) => l.type === "dist" && l.q1 !== l.q2), loads.tri);
+    assert.equal(count((l) => l.type === "moment"), loads.moment);
+    const spots = m.loads.filter((l) => l.type !== "dist").map((l) => `${l.type === "moment" ? "m" : "f"}${l.x}`);
+    assert.equal(new Set(spots).size, spots.length);
+    const d = m.loads.filter((l) => l.type === "dist");
+    for (let a = 0; a < d.length; a++)
+      for (let b = a + 1; b < d.length; b++) assert.ok(Math.min(d[a].x2, d[b].x2) <= Math.max(d[a].x1, d[b].x1) + 1e-9);
+    if (whole) for (const l of m.loads) for (const x of [l.x, l.x1, l.x2]) if (x !== undefined) assert.equal(x % 1, 0);
+  }
+});
+
 test("generator: a cantilever fixed on the right gets loads at its free tip (x = 0) too", async () => {
   const { generateProblem } = await import("../src/core/generator.js");
   let seed = 3;

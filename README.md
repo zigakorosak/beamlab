@@ -19,7 +19,9 @@ at **zigakorosak.com/beamlab**.
   shear diagram, moment diagram, or the full solution), a beam type
   (simply supported, cantilever, overhanging, with a hinge, statically
   indeterminate, or mixed), the loads (easy / medium / hard) and how many
-  beams. Type the reactions; draw the diagrams by dragging dots at the
+  beams (3, 5, 10 or any number up to 50 on a slider). Or **Custom
+  practice**: tick any mix of tasks, beam types and load kinds, with how
+  many of each load per beam. Type the reactions; draw the diagrams by dragging dots at the
   key points. Every answer is graded, the exact diagram is drawn over
   yours, and the reactions come with the equilibrium equations.
 - **Practice this** in Build turns your own beam into a question.

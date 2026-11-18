@@ -35,8 +35,9 @@ const layouts = {
       ? { L, supports: [["pin", 0], ["roller", L]] }
       : { L, supports: [["roller", 0], ["pin", L]] };
   },
-  cantilever(rng, grid) {
-    const L = pick(rng, grid === 1 ? [2, 3, 4] : range(2, 6, 0.5));
+  cantilever(rng, grid, roomy = false) {
+    // (roomy: custom practice, where up to 15 loads must find a spot.)
+    const L = pick(rng, roomy ? range(3, 8, grid) : grid === 1 ? [2, 3, 4] : range(2, 6, 0.5));
     return { L, supports: [["fixed", rng() < 0.6 ? 0 : L]] };
   },
   overhang(rng, grid) {
@@ -188,4 +189,99 @@ export function generateProblem(typeId, levelId, rng = Math.random) {
     return model;
   }
   throw new Error(`could not generate a ${typeId}/${levelId} problem`);
+}
+
+// ---- Custom practice: the player picks the beam types and how many of
+// each load kind (ui/customPractice.js).
+
+export const LOAD_KINDS = [
+  { id: "point", label: "Vertical point forces" },
+  { id: "inclined", label: "Inclined point forces" },
+  { id: "udl", label: "Uniform distributed loads" },
+  { id: "tri", label: "Triangular distributed loads" },
+  { id: "moment", label: "Concentrated moments" },
+];
+
+export const MAX_PER_KIND = 3;
+
+// `count` distinct items of `arr`, or null when there aren't enough.
+function pickDistinct(rng, arr, count) {
+  if (count > arr.length) return null;
+  const pool = [...arr];
+  const out = [];
+  for (let i = 0; i < count; i++) out.push(pool.splice(Math.floor(rng() * pool.length), 1)[0]);
+  return out;
+}
+
+// `count` spans on [0, L] that may touch but not overlap, each at least
+// 1 m long when the beam has room for that (else one grid step).
+function spans(rng, L, grid, count) {
+  if (count === 1 && rng() < 0.5) return [[0, L]];
+  const minLen = L / count >= 1 ? 1 : grid;
+  const xs = range(0, L, grid);
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const cuts = Array.from({ length: 2 * count }, () => pick(rng, xs)).sort((a, b) => a - b);
+    const out = [];
+    for (let i = 0; i < count; i++) out.push([cuts[2 * i], cuts[2 * i + 1]]);
+    if (out.every(([a, b]) => b - a >= minLen - 1e-9)) return out;
+  }
+  return null;
+}
+
+/**
+ * A ready model from custom choices:
+ *   { types: ["simple", …], loads: { point: 2, udl: 1, … }, vary, whole }
+ * `vary`: each kind gets 1 … its number (at random) rather than exactly it.
+ * `whole`: positions on whole metres only.
+ * Returns null when no beam fits the choices (too many loads for any length).
+ */
+export function generateCustomProblem({ types, loads: amounts, vary = false, whole = false }, rng = Math.random) {
+  const grid = whole ? 1 : 0.5;
+  for (let attempt = 0; attempt < 200; attempt++) {
+    const type = pick(rng, types);
+    const layout = layouts[type](rng, grid, true);
+    const L = layout.L;
+    const fixedXs = [...layout.supports.map(([, x]) => x), ...(layout.hinges ?? [])];
+    const pts = range(0, L, grid).filter((x) => !fixedXs.some((s) => Math.abs(s - x) < 1e-9));
+    const n = Object.fromEntries(
+      LOAD_KINDS.map(({ id }) => {
+        const max = Math.min(MAX_PER_KIND, amounts[id] ?? 0);
+        return [id, vary && max > 0 ? 1 + Math.floor(rng() * max) : max];
+      }),
+    );
+    // Forces and moments each get their own spots (two on one spot read as one).
+    const forceXs = pickDistinct(rng, pts, n.point + n.inclined);
+    const momentXs = pickDistinct(rng, pts, n.moment);
+    const dists = n.udl + n.tri ? spans(rng, L, grid, n.udl + n.tri) : [];
+    if (!forceXs || !momentXs || !dists) continue;
+    const kinds = [...Array(n.udl).fill("udl"), ...Array(n.tri).fill("tri")];
+    const loads = [
+      ...forceXs.map((x, i) => {
+        const p = pointLoad(rng, pts, "medium");
+        return { ...p, x, angle: i < n.inclined ? pick(rng, [30, 45, 60, -30, -45, -60]) : 0 };
+      }),
+      ...momentXs.map((x) => ({ ...couple(rng, pts), x })),
+      ...pickDistinct(rng, kinds, kinds.length).map((kind, i) => {
+        const [x1, x2] = dists[i];
+        if (kind === "udl") {
+          const q = pick(rng, range(2, 12, 1));
+          return { type: "dist", x1, x2, q1: q, q2: q };
+        }
+        const q = pick(rng, range(4, 15, 1));
+        return rng() < 0.5 ? { type: "dist", x1, x2, q1: 0, q2: q } : { type: "dist", x1, x2, q1: q, q2: 0 };
+      }),
+    ];
+    const model = {
+      beam: { x0: 1, length: L },
+      supports: layout.supports.map(([t, x]) => ({ id: newId("s"), type: t, x })),
+      hinges: (layout.hinges ?? []).map((x) => ({ id: newId("g"), x })),
+      loads: loads.map((l) => ({ id: newId("l"), ...l })),
+      kind: type,
+    };
+    const sol = solve(model);
+    if (!sol.ok) continue;
+    if (sol.xs.every((x) => Math.abs(sol.M(x, "-")) < 1e-6 && Math.abs(sol.M(x, "+")) < 1e-6)) continue;
+    return model;
+  }
+  return null;
 }

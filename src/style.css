@@ -197,6 +197,136 @@ button:disabled {
   color: var(--text-dim);
 }
 
+/* Beam-count slider (quick wizard's last step, custom practice). */
+.count-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.count-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--accent);
+  height: 1.75rem; /* a fat touch target */
+  cursor: pointer;
+}
+
+.count-value {
+  min-width: 2ch;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-count {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  width: min(22rem, 100%);
+  margin: 0 auto;
+}
+
+.custom-count h2,
+.custom-section h2 {
+  font-size: 1.05rem;
+  color: var(--text-dim);
+  margin: 0;
+  text-align: center;
+}
+
+/* Custom practice (ui/customPractice.js). */
+.custom-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: min(26rem, 100%);
+  margin: 0 auto;
+}
+
+.custom-section h2 {
+  margin-bottom: 0.35rem;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+.check-row:hover {
+  background: var(--accent-dim);
+}
+
+.check-row input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0.1rem 0 0;
+  flex: none;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.check-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.check-desc {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.load-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.amount {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: none;
+}
+
+.amount-button {
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.amount-value {
+  min-width: 1.5ch;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.load-row--off .amount-value {
+  opacity: 0.4;
+}
+
+.custom-error {
+  min-height: 1.3em;
+  margin: -0.75rem 0;
+  text-align: center;
+  color: var(--wrong);
+}
+
+.custom-start {
+  align-self: center;
+  min-width: 10rem;
+}
+
 /* How to play (ui/helpScreen.js): readable text in the menu column. */
 .help-section h2 {
   font-size: 1.05rem;

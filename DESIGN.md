@@ -55,7 +55,8 @@ src/
     dom.js, screenKit.js, hamburgerMenu.js — copied from Anatomy Quiz
     popup.js      — centred popup (Examples), Anatomy Quiz's Subjects popup
     home.js       — Practice / Izpitne naloge / Build / How to play / Settings
-    gameWizard.js — task → beam type → loads → number of beams
+    gameWizard.js — Quick (task → beam type → loads → number of beams) or Custom
+    customPractice.js — Custom practice form; the beam-count slider
     game.js       — Practice: stages, grading, summary
     diagramEditor.js — the player's diagram: draggable dots, grading
     build.js      — Build: palette, drag & drop, inspector, undo, live diagrams
@@ -215,10 +216,30 @@ green, N violet, V blue, M pink, w teal.
 
 ### Practice (`ui/game.js`, `ui/diagramEditor.js`)
 
-Wizard: "What do you want to practise?" (Full solution / Support reactions
-/ Shear force diagram / Bending moment diagram) → "Choose a beam" →
-"Choose the loads" → "How many beams?" (3, 5, 10). Named steps with a
-history, as in GeoQuiz, so ☰ → Back returns to the last step.
+Wizard: "Practice" → **Quick practice** or **Custom practice**. Named
+steps with a history, as in GeoQuiz, so ☰ → Back returns to the last step.
+
+- **Quick**: "What do you want to practise?" (Full solution / Support
+  reactions / Shear force diagram / Bending moment diagram) → "Choose a
+  beam" → "Choose the loads" → "How many beams?" (3, 5, 10, or any number
+  1–50 on a slider + Start).
+- **Custom** (`ui/customPractice.js`): one form. Tasks (any of the four;
+  each beam gets one at random, and the stage chip then always shows),
+  beam types (any of the five), and per load kind (vertical / inclined
+  point forces, uniform / triangular distributed loads, moments) a
+  checkbox and an amount 1–3 (− n +, or the wheel). "Vary the amounts"
+  makes each kind 1 … n per beam; "Whole metres only" puts lengths and
+  positions on whole metres. The beam-count slider. Start is disabled
+  with a reason while a group is empty, and refuses (with a message)
+  when one trial beam can't be generated. The choices are kept in
+  localStorage (`beamlab-custom`) and in the game config (`customForm`),
+  so ☰ → Back reopens the form as it was.
+- `generateCustomProblem` (`core/generator.js`): the same support layouts
+  (cantilevers 3–8 m, so up to 15 loads fit), forces on distinct spots,
+  moments on distinct spots, distributed loads on spans that may touch
+  but not overlap (≥ 1 m when the beam has room, else one grid step);
+  retried up to 200 times, returns null when nothing fits.
+- The beam-count slider (both modes) steps by one on the mouse wheel.
 
 Header: "Beam 2 / 5", the stage chip (with more than one stage), "Score",
 the beam's timer, Confirm → Next / Next beam / See Results, ☰ (Restart /
