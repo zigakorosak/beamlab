@@ -15,7 +15,8 @@ import { momentExtrema, solve } from "../core/solver.js";
 import { equilibriumSteps } from "../core/explain.js";
 import { loadSettings } from "../core/settings.js";
 import { fmt, parseNumber } from "../core/format.js";
-import { isExact, reactionsOk } from "../core/grading.js";
+import { isExact, reactionScale, reactionsOk } from "../core/grading.js";
+import { reactionLadder } from "../core/ladder.js";
 import { drawModel, MODEL_BAND } from "../render/beamView.js";
 import { BAND_HEIGHT } from "../render/diagramView.js";
 import { makeScale, solutionBands } from "../render/board.js";
@@ -23,7 +24,7 @@ import { s } from "../render/svg.js";
 import { h } from "./dom.js";
 import { createHamburgerMenu } from "./hamburgerMenu.js";
 import { createDiagramEditor } from "./diagramEditor.js";
-import { boxText, selectOnFocus, wheelSteps } from "./inputKit.js";
+import { boxText, selectOnFocus, wheelNumber, wheelSteps } from "./inputKit.js";
 
 // After the last stage, the report's buttons ignore clicks this long (ms),
 // so a quick second click on "See Results" doesn't skip the report.
@@ -214,14 +215,13 @@ export function renderGame(root, navigate, config, backState) {
           const name = c === "m" ? `M${r.name}` : `${r.name}${c}`;
           const input = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": name });
           selectOnFocus(input);
-          // 1 kN a notch, 0.1 with Shift.
-          wheelSteps(input, (dir, e) => {
-            if (phase !== "answering") return;
-            const v = (parseNumber(input.value) ?? 0) + dir * (e.shiftKey ? 0.1 : 1);
-            input.value = boxText(Math.round(v * 1e6) / 1e6);
-            input.focus({ preventScroll: true });
-            input.select();
-          });
+          // Steps that grow with the value, fine enough to land on a
+          // right answer (core/ladder.js); a tenth of a step with Shift.
+          const unit = c === "m" ? "kNm" : "kN";
+          const all = sol.reactions.flatMap((q) =>
+            [{ answer: q.Rx, unit: "kN" }, { answer: q.Ry, unit: "kN" }, ...(q.type === "fixed" ? [{ answer: q.M, unit: "kNm" }] : [])],
+          );
+          wheelNumber(input, reactionLadder(reactionScale(all, unit)), () => phase === "answering");
           input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
               e.preventDefault();

@@ -2,6 +2,24 @@
 
 Newest first. What changed and why.
 
+## 2026-11-24: Scroll to a right answer, no decimals to type
+
+The mouse wheel over a number box (Practice reactions, exam answers)
+used to step by 1 (exam answers too): 292 of 3,741 generated reactions
+(3.57 kN …) and 985 of 5,696 exam answers (0,0588 kN/cm² …) could not be
+reached within the tolerance without typing decimals, and big values
+took hundreds of notches. Now one notch moves along a ladder of 1-2-5
+steps that grow with the value (never more than a tenth of it, never
+below a floor set by the box's tolerance), new `core/ladder.js`. Every
+reaction and exam answer is reachable (new `test/ladder.test.mjs`), in
+23 notches on average for reactions (47 at most; was up to 265). Shift
+still gives a tenth of a step. Diagram dots needed nothing: the snap
+step is never coarser than their tolerance (checked on 45,372 dots).
+
+Checked in Firefox: the wheel sequence in a box, Shift, and four
+Practice beams (same seed twice: once to read the answers, once
+answered by scrolling only), every reaction ✓.
+
 ## 2026-11-24: Drag the diagram's line, link pairs of dots
 
 When drawing N / V / M, grabbing the line between dots drags that whole

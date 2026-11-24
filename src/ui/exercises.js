@@ -19,6 +19,7 @@ import { answerOk } from "../core/grading.js";
 import { parseNumber } from "../core/format.js";
 import { h } from "./dom.js";
 import { selectOnFocus, wheelNumber } from "./inputKit.js";
+import { answerLadder } from "../core/ladder.js";
 
 const EXAM_POINTS = [30, 35, 35];
 const EXAM_MINUTES = 90;
@@ -148,7 +149,7 @@ export function renderExercise(root, navigate, config) {
       const input = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": plain(a.label) });
       selectOnFocus(input);
       // Keep every typed digit (and the decimal comma): answers can be 0,0588.
-      wheelNumber(input, a.step ?? 1, () => !current.checked, (v) => String(v).replace(".", ","));
+      wheelNumber(input, answerLadder(a), () => !current.checked, (v) => String(v).replace(".", ","));
       input.addEventListener("keydown", (e) => {
         if (e.key !== "Enter") return;
         e.preventDefault();

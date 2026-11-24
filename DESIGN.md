@@ -62,7 +62,7 @@ src/
     build.js      — Build: palette, drag & drop, inspector, undo, live diagrams
     settingsScreen.js, helpScreen.js
     exercises.js  — Izpitne naloge: topic menu, exercise runner, mock exam
-    inputKit.js   — number boxes: select on focus/hover, wheel steps (Practice + exercises)
+    inputKit.js   — number boxes: select on focus/hover, wheel steps along a ladder (Practice + exercises)
   exercises/      — the exam exercises (see "Izpitne naloge" below)
     kit.js, draw.js, registry.js
     statika/ telo/ trenje/ nosilec/ okvir/ prerez/ napetosti/ trdnost2/
@@ -253,8 +253,8 @@ full solution, diagrams already done stay up (solved, faint) as help.
   Approximate is right (`core/grading.js`): within max(5 % of the value,
   1 % of the largest reaction in the same unit, kN or kNm, 0.05). Empty counts as 0. Enter goes to the
   next field, and confirms from the last. Focusing a field (or hovering it with
-  the mouse, which focuses it) selects its text, so typing replaces it; the mouse wheel over a field steps it by
-  1 (Shift: 0.1). The result shows ✓ (with the exact value when the answer
+  the mouse, which focuses it) selects its text, so typing replaces it; the mouse wheel over a field steps it
+  along a ladder (`core/ladder.js`, below; Shift: a tenth of a step). The result shows ✓ (with the exact value when the answer
   was only close), or ✗ and the right value per field, the solved reactions on the beam, the distributed loads'
   resultants (dashed; a load whose q changes sign has one per part, split
   at q = 0), and `equilibriumSteps`: resultants, ΣFx, ΣFy, ΣM
@@ -292,6 +292,22 @@ full solution, diagrams already done stay up (solved, faint) as help.
   pad has `touch-action: none` and cancels its own touchstart/touchmove
   (a flick otherwise left a fling that ate the next tap); the rest of the
   board still scrolls the round on a phone. Hidden after Confirm.
+- **Wheel ladder** (`core/ladder.js`): one notch moves a number box to
+  the next value on a fixed ladder whose step grows with the value: the
+  largest 1-2-5 step not above a tenth of it (… 1.9, 2, 2.2 … 4.8, 5,
+  5.5 … 9.5, 10, 11 …), never below a floor `min` (near 0) and, for
+  absolute tolerances, never above `max`. A step of at most a tenth of
+  the value keeps the nearest ladder value within 5 % of any answer, so
+  every answer can be scrolled to without typing decimals. The floor is
+  twice the smallest tolerance of the box: for reactions, from the
+  largest reaction in the unit (`reactionScale`, the same for every box
+  in the unit, so it gives nothing away); for exam answers, from `scale`,
+  or a hundredth of the value when it's graded to 5 % alone; angles
+  (`tol` 1°) step by 1°. Typed values in between step to their ladder
+  neighbours. `test/ladder.test.mjs` scrolls to every reaction and exam
+  answer from 0. Diagram dots already were fine: the snap step is never
+  coarser than their tolerance (checked: 45,372 dots, all right at the
+  nearest snap).
 - One point per stage that's entirely right. Summary: "Game Over", score,
   times, and every beam with each stage ✓ or ✗ right/total; Play Again /
   Back / Home, inert for the first 500 ms (`REPORT_GUARD_MS`, as in
@@ -358,7 +374,7 @@ wholly inside or outside is fine), and every N-T-M value (`data-values`) drawn.
 plus "Poskusni izpit": one exercise per slot (1 statics, 2 N-T-M,
 3 strength), 30/35/35 points shared by the fraction of right results,
 90-minute countdown, pass mark 50 %. Answers are typed (select on focus
-or hover, wheel steps); Preveri grades them with `answerOk` (`core/grading.js`):
+or hover, wheel steps along `answerLadder(a)`); Preveri grades them with `answerOk` (`core/grading.js`):
 5 % of the answer's own value; an answer that can come out about 0
 (reactions, stress components, moment components, …) gets a `scale` from
 its module (`nearZero()` in kit.js: right within 1 % of the largest answer
