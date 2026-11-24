@@ -10,6 +10,9 @@ const defaults = {
   // or "tension" (on the tension side, i.e. sagging below the axis — the
   // European convention).
   momentSide: "up",
+  // Moment diagram in Practice: the curve under a distributed load bends
+  // by itself (true) or by a middle dot the player drags (false).
+  autoMid: true,
   // Build grid: positions snap to this many metres.
   snap: 0.5,
 };

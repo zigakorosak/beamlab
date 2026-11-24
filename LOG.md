@@ -2,6 +2,19 @@
 
 Newest first. What changed and why.
 
+## 2026-11-24: Automatic moment curve under distributed loads
+
+New setting, on by default: in Practice's moment diagram the curve under
+a distributed load bends by itself, so there are no halfway dots to drag;
+the player sets the key points and the bulge follows from the load (the
+exact M at the middle when the ends are right). Settings → "Practice:
+moment diagram under distributed loads" → "Halfway dots to drag" brings
+the middle dots back. The stage prompt and How to play say which is on.
+New `test/editor.test.mjs`: 450 generated beams, right key points give
+the exact M at every segment's middle (and the exact curve under uniform
+loads). Checked in Firefox: no middle dots and a bulging curve by
+default; after switching the setting, the middle dots are back.
+
 ## 2026-11-24: Scroll to a right answer, no decimals to type
 
 The mouse wheel over a number box (Practice reactions, exam answers)

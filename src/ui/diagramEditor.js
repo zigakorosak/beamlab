@@ -5,6 +5,11 @@
 // typed in; the curve between them is straight, or a parabola through the
 // middle dot. Grading compares each dot with the exact value.
 //
+// With `autoMid` (Settings, the default), M gets no middle dots: the bend
+// under a distributed load follows from the load alone (M minus the
+// straight line between its ends depends only on the load on that piece),
+// so the player sets the key points and the curve bulges by itself.
+//
 // Grabbing the line (away from the dots) drags that whole segment. Double
 // clicking (or double tapping) a key point's pair of dots links them: they
 // move as one (no jump there) until another double click unlinks them.
@@ -28,7 +33,7 @@ const LINE_HIT = { mouse: 8, touch: 14 }; // px: a press this close to the line 
 const DOUBLE_MS = 400; // two taps on one pair this close together link / unlink it
 const TAP_SLOP = 6; // px: a press that moved less is a tap
 
-export function createDiagramEditor({ sol, model, kind, momentSide }) {
+export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = true }) {
   const fn = sol[kind];
   const flip = kind === "M" && momentSide === "tension";
   const trueMax = Math.max(maxAbs(sol, fn), 1e-6);
@@ -46,11 +51,17 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
       (d) => d.x1 <= a + 1e-9 && d.x2 >= b - 1e-9 && (kind === "M" ? d.q1 !== 0 || d.q2 !== 0 : d.q1 !== d.q2),
     );
   const dots = [];
+  // Segment i's automatic bulge at its middle (autoMid), else 0.
+  const bulges = [];
   for (let i = 0; i < xs.length; i++) {
     if (i > 0) dots.push({ x: xs[i], side: "-" });
     if (i < xs.length - 1) {
       dots.push({ x: xs[i], side: "+" });
-      if (kind !== "N" && bends(xs[i], xs[i + 1])) dots.push({ x: (xs[i] + xs[i + 1]) / 2, side: "mid" });
+      bulges[i] = 0;
+      if (kind === "N" || !bends(xs[i], xs[i + 1])) continue;
+      const m = (xs[i] + xs[i + 1]) / 2;
+      if (kind === "M" && autoMid) bulges[i] = fn(m) - (fn(xs[i], "+") + fn(xs[i + 1], "-")) / 2;
+      else dots.push({ x: m, side: "mid" });
     }
   }
   for (const d of dots) {
@@ -121,12 +132,13 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
     const { a, b, left, mid, right } = segmentDots(i);
     const va = dots[left].value;
     const vb = dots[right].value;
-    if (mid < 0) return va + ((vb - va) * (x - a)) / (b - a);
-    const m = dots[mid].x;
+    if (mid < 0 && !bulges[i]) return va + ((vb - va) * (x - a)) / (b - a);
+    const m = (a + b) / 2;
+    const vm = mid < 0 ? (va + vb) / 2 + bulges[i] : dots[mid].value;
     const la = ((x - m) * (x - b)) / ((a - m) * (a - b));
     const lm = ((x - a) * (x - b)) / ((m - a) * (m - b));
     const lb = ((x - a) * (x - m)) / ((b - a) * (b - m));
-    return va * la + dots[mid].value * lm + vb * lb;
+    return va * la + vm * lm + vb * lb;
   }
 
   /** The player's curve as [[x, v]…], jumps as repeated x. */
@@ -134,7 +146,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
     const pts = [];
     for (let i = 0; i < xs.length - 1; i++) {
       const { a, b, mid } = segmentDots(i);
-      const n = mid < 0 ? 1 : 24;
+      const n = mid < 0 && !bulges[i] ? 1 : 24;
       for (let j = 0; j <= n; j++) {
         const x = a + ((b - a) * j) / n;
         pts.push([x, segmentValue(i, x)]);
@@ -366,6 +378,8 @@ export function createDiagramEditor({ sol, model, kind, momentSide }) {
       const right = dots.filter(ok).length;
       return { right, total: dots.length, ok: right === dots.length };
     },
+    /** The player's curve as [[x, v]…] (tests). */
+    curve,
     draw,
     attach,
   };

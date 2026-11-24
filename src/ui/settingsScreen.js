@@ -15,6 +15,14 @@ const sections = [
     ],
   },
   {
+    title: "Practice: moment diagram under distributed loads",
+    key: "autoMid",
+    options: [
+      { label: "Curve automatically", desc: "Set the key points; the curve bends by itself", value: true },
+      { label: "Halfway dots to drag", desc: "Shape each curve with its middle dot yourself", value: false },
+    ],
+  },
+  {
     title: "Build: snap positions to",
     key: "snap",
     options: [

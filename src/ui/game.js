@@ -115,7 +115,7 @@ export function renderGame(root, navigate, config, backState) {
     reactionInputs = [];
     const st = stage();
     if (st !== "reactions") {
-      editor = createDiagramEditor({ sol, model, kind: st, momentSide: settings.momentSide });
+      editor = createDiagramEditor({ sol, model, kind: st, momentSide: settings.momentSide, autoMid: settings.autoMid });
     }
     progress.textContent = `Beam ${round + 1} / ${config.rounds}`;
     stageChip.textContent = STAGE_NAMES[st];
@@ -144,7 +144,7 @@ export function renderGame(root, navigate, config, backState) {
       ],
       M: [
         "Draw the bending moment diagram M(x).",
-        `Sagging is positive, ${momentWay}. Middle dots shape the curve under distributed loads; drag the line to move a whole piece, double click a pair of dots to link them.`,
+        `Sagging is positive, ${momentWay}. ${settings.autoMid ? "Under distributed loads the curve bends by itself (Settings)" : "Middle dots shape the curve under distributed loads"}; drag the line to move a whole piece, double click a pair of dots to link them.`,
       ],
     }[st];
     promptEl.replaceChildren(h("div.prompt-title", {}, lines[0]), h("div.prompt-sub", {}, lines[1]));

@@ -274,6 +274,17 @@ full solution, diagrams already done stay up (solved, faint) as help.
   never stricter than one snap step. After Confirm: dots
   green/red, the exact diagram dashed over the player's, with its labels,
   and for M the largest |M| and where.
+- **Automatic moment curve** (Settings → "Practice: moment diagram under
+  distributed loads", default on, `settings.autoMid`): M gets no middle
+  dots. A segment's curve is the parabola through its two end dots and
+  a middle value of (left + right) / 2 + the segment's bulge, where the
+  bulge = M(mid) − (M(a⁺) + M(b⁻)) / 2 of the exact solution: M minus the
+  straight line between its ends depends only on the load on that piece,
+  so the bulge gives nothing away about the key values. With the key
+  points right, the curve is exact at the middle (and everywhere under a
+  uniform load); only the key dots are graded. Off: the middle dots are
+  back, to drag and graded as before. V keeps its middle dots under a
+  varying load either way (`test/editor.test.mjs`).
 - **Dragging the line**: a press within 8 px (touch 14 px) of the
   player's curve and not on a dot (12 px) grabs that segment: its end dots
   and middle dot (and the partners of linked end dots) move together by
