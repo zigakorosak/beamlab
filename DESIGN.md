@@ -58,7 +58,7 @@ src/
     gameWizard.js — Quick (task → beam type → loads → number of beams) or Custom
     customPractice.js — Custom practice form; the beam-count slider
     game.js       — Practice: stages, grading, summary
-    diagramEditor.js — the player's diagram: draggable dots, grading
+    diagramEditor.js — the player's diagram: draggable dots and segments, linked pairs, grading
     build.js      — Build: palette, drag & drop, inspector, undo, live diagrams
     settingsScreen.js, helpScreen.js
     exercises.js  — Izpitne naloge: topic menu, exercise runner, mock exam
@@ -274,6 +274,24 @@ full solution, diagrams already done stay up (solved, faint) as help.
   never stricter than one snap step. After Confirm: dots
   green/red, the exact diagram dashed over the player's, with its labels,
   and for M the largest |M| and where.
+- **Dragging the line**: a press within 8 px (touch 14 px) of the
+  player's curve and not on a dot (12 px) grabs that segment: its end dots
+  and middle dot (and the partners of linked end dots) move together by
+  whole snap steps. The mouse cursor turns to a grab hand over the line.
+- **Linked pairs**: two taps within 400 ms on an interior key point's dots
+  (either one, each press moving < 6 px) link them: the partner takes the
+  tapped dot's value, and from then on dragging, typing, nudging and the
+  wheel move both (a capsule is drawn around them; the label says "both
+  sides of x = … (linked)"; ← → step over the pair as one stop). Two taps
+  again unlink them. The beam's ends have one dot and can't be linked.
+  Grading still checks each dot.
+- **Input layer**: the editor's pointer input is on a transparent HTML
+  `div.editor-pad` over its band (`.board-wrap` is `position: relative`),
+  not on the SVG: Chromium ignores `touch-action` on elements inside an
+  `<svg>`, so touch drags became page scrolls after the first move. The
+  pad has `touch-action: none` and cancels its own touchstart/touchmove
+  (a flick otherwise left a fling that ate the next tap); the rest of the
+  board still scrolls the round on a phone. Hidden after Confirm.
 - One point per stage that's entirely right. Summary: "Game Over", score,
   times, and every beam with each stage ✓ or ✗ right/total; Play Again /
   Back / Home, inert for the first 500 ms (`REPORT_GUARD_MS`, as in

@@ -2,6 +2,27 @@
 
 Newest first. What changed and why.
 
+## 2026-11-24: Drag the diagram's line, link pairs of dots
+
+When drawing N / V / M, grabbing the line between dots drags that whole
+segment up or down (both ends and the middle dot). Double clicking (or
+double tapping) a key point's two dots links them into one: they move
+together, as for a point with no jump, and a capsule shows the link;
+double clicking again unlinks them. Help text and stage prompts say so.
+
+Found while testing on touch: in Chromium (Android Chrome) a touch drag
+on a diagram dot was cancelled after its first move and scrolled the page
+instead, because `touch-action: none` on an element inside the SVG is
+ignored. The editor now takes its input on an HTML layer over the band,
+with `touch-action: none` and its touch events cancelled; swiping over
+the beam figure still scrolls the round.
+
+Checked with Playwright: Firefox (mouse) and Chromium (CDP touch, 390 px
+phone and 1000 px): segment drags (straight and curved), link, drag of a
+linked pair, unlink, slow taps don't link, ← → over a pair, a 60 px touch
+drag that now goes the whole way, scrolling over the figure, Confirm
+right after a quick flick, grading after Confirm. No console errors.
+
 ## 2026-11-18: Custom practice and any number of beams
 
 Practice now asks first: **Quick practice** (the wizard as it was) or

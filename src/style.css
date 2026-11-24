@@ -568,6 +568,7 @@ button:disabled {
 .board-wrap {
   background: var(--stage);
   width: 100%;
+  position: relative; /* for the diagram editor's input layer */
 }
 
 .board {
@@ -1246,11 +1247,6 @@ line.hit {
 }
 
 /* The player's diagram */
-.editor.is-editable {
-  cursor: ns-resize;
-  touch-action: none;
-}
-
 .value-grid line {
   stroke: var(--grid-major);
   stroke-width: 1;
@@ -1284,6 +1280,31 @@ line.hit {
 
 .dot.is-wrong {
   fill: var(--wrong);
+}
+
+/* The diagram editor's input layer over its band (diagramEditor.js). */
+.editor-pad {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  touch-action: none;
+  cursor: ns-resize;
+}
+
+.editor-pad[data-grab="line"] {
+  cursor: grab;
+}
+
+/* Two dots linked into one (diagramEditor.js): a capsule around both. */
+.dot-pair {
+  fill: var(--accent-dim);
+  stroke: var(--text-dim);
+  stroke-width: 1.5;
+}
+
+.dot-pair.is-selected {
+  stroke: var(--accent);
+  stroke-width: 2;
 }
 
 .dot-ring {

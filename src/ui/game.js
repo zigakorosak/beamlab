@@ -136,14 +136,14 @@ export function renderGame(root, navigate, config, backState) {
         "Find the support reactions.",
         "Positive as drawn: horizontal →, vertical ↑, moments ↺ (counterclockwise). In kN and kNm; a negative value means the other way.",
       ],
-      N: ["Draw the axial force diagram N(x).", "Tension is positive. Drag the dots, or pick one and type its value."],
+      N: ["Draw the axial force diagram N(x).", "Tension is positive. Drag the dots or the line, or pick a dot and type its value."],
       V: [
         "Draw the shear force diagram V(x).",
-        "V is positive when the forces left of the cut push up. Each key point has a dot just left and just right of it, for jumps. Drag the dots, or pick one and type its value.",
+        "V is positive when the forces left of the cut push up. Each key point has a dot just left and just right of it, for jumps (double click a pair to link them). Drag the dots or the line, or pick a dot and type its value.",
       ],
       M: [
         "Draw the bending moment diagram M(x).",
-        `Sagging is positive, ${momentWay}. Middle dots shape the curve under distributed loads.`,
+        `Sagging is positive, ${momentWay}. Middle dots shape the curve under distributed loads; drag the line to move a whole piece, double click a pair of dots to link them.`,
       ],
     }[st];
     promptEl.replaceChildren(h("div.prompt-title", {}, lines[0]), h("div.prompt-sub", {}, lines[1]));

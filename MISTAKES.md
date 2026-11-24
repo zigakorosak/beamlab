@@ -95,3 +95,16 @@ printed model, a probe of what's under the pointer) before the next fix.
   each re-read it right before adding its own lines. Shared kit changes
   were kept to me, after reading their reports; their own workarounds
   (world-length arrows, shorter labels) stay valid with the new margins.
+- **`touch-action` does nothing inside an `<svg>` in Chromium.** The
+  editor's `g.editor { touch-action: none }` never applied: touch drags on
+  the diagram got `pointercancel` after the first move (the page scrolled).
+  Mouse tests and Firefox never showed it. Test touch drags in Chromium
+  with several `Input.dispatchTouchEvent` moves, not one, and check the
+  event trace for `pointercancel`. The fix is an HTML layer with
+  `touch-action: none`.
+- **A fast flick leaves a fling that eats the next tap**, even on a
+  `touch-action: none` element, unless its touchmove is cancelled. It
+  looked like "Confirm does nothing" and only showed when the tap came
+  right after a fast synthetic swipe; a slow drag or a 2 s wait hid it.
+  Bisect a "tap ignored" by timing and swipe speed before blaming the app
+  logic.
