@@ -317,6 +317,26 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       if (pad.hasPointerCapture?.(e.pointerId)) pad.releasePointerCapture(e.pointerId);
     };
     const onLeave = () => delete pad.dataset.grab;
+    // Right click on a pair links / unlinks it, like a double click.
+    const onContextMenu = (e) => {
+      e.preventDefault();
+      if (revealed) return;
+      const p = local(e);
+      if (!inBand(p)) return;
+      let idx = dotAt(p);
+      if (idx < 0) {
+        let best = PICK_RADIUS;
+        dots.forEach((d, i) => {
+          const dist = Math.abs(dotX(d) - p.x);
+          if (dist < best) [best, idx] = [dist, i];
+        });
+      }
+      if (idx < 0 || pairOf(idx) < 0) return;
+      toggleLink(idx);
+      selected = idx;
+      onSelect?.(e);
+      redraw();
+    };
     // Even with touch-action: none, a quick flick on the layer left Chromium
     // a fling that ate the next tap (Confirm did nothing). Touches on the
     // layer are all ours: no scroll, fling or zoom gestures from them.
@@ -333,7 +353,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       onSelect?.(e);
       redraw();
     };
-    const handlers = { pointerdown: onDown, pointermove: onMove, pointerup: onUp, pointercancel: onUp, pointerleave: onLeave, wheel: onWheel, touchstart: noGesture, touchmove: noGesture };
+    const handlers = { pointerdown: onDown, pointermove: onMove, pointerup: onUp, pointercancel: onUp, pointerleave: onLeave, wheel: onWheel, contextmenu: onContextMenu, touchstart: noGesture, touchmove: noGesture };
     pad = document.createElement("div");
     pad.className = "editor-pad";
     svg.parentElement.append(pad);
@@ -359,6 +379,10 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       let next = wrap(i);
       if (next !== selected && group(selected).includes(next)) next = wrap(next + (i < selected ? -1 : 1));
       selected = next;
+    },
+    /** Links or unlinks the selected dot's pair (Space). */
+    toggleLink() {
+      toggleLink(selected);
     },
     nudge(dir) {
       setDot(selected, clampSnap(dots[selected].value + dir * step));

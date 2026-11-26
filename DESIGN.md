@@ -294,7 +294,10 @@ full solution, diagrams already done stay up (solved, faint) as help.
   tapped dot's value, and from then on dragging, typing, nudging and the
   wheel move both (a capsule is drawn around them; the label says "both
   sides of x = … (linked)"; ← → step over the pair as one stop). Two taps
-  again unlink them. The beam's ends have one dot and can't be linked.
+  again unlink them. A right click on a pair, or Space with one of its
+  dots selected, toggles it the same way (Space works from the value box
+  too: a number never needs a space). The beam's ends have one dot and
+  can't be linked.
   Grading still checks each dot.
 - **Input layer**: the editor's pointer input is on a transparent HTML
   `div.editor-pad` over its band (`.board-wrap` is `position: relative`),

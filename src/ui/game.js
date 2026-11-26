@@ -140,11 +140,11 @@ export function renderGame(root, navigate, config, backState) {
       N: ["Draw the axial force diagram N(x).", "Tension is positive. Drag the dots or the line, or pick a dot and type its value."],
       V: [
         "Draw the shear force diagram V(x).",
-        "V is positive when the forces left of the cut push up. Each key point has a dot just left and just right of it, for jumps (double click a pair to link them). Drag the dots or the line, or pick a dot and type its value.",
+        "V is positive when the forces left of the cut push up. Each key point has a dot just left and just right of it, for jumps (double click a pair, or pick one and press Space, to link them). Drag the dots or the line, or pick a dot and type its value.",
       ],
       M: [
         "Draw the bending moment diagram M(x).",
-        `Sagging is positive, ${momentWay}. ${settings.autoMid ? "Under distributed loads the curve bends by itself (Settings)" : "Middle dots shape the curve under distributed loads"}; drag the line to move a whole piece, double click a pair of dots to link them.`,
+        `Sagging is positive, ${momentWay}. ${settings.autoMid ? "Under distributed loads the curve bends by itself (Settings)" : "Middle dots shape the curve under distributed loads"}; drag the line to move a whole piece, double click a pair of dots (or press Space) to link them.`,
       ],
     }[st];
     promptEl.replaceChildren(h("div.prompt-title", {}, lines[0]), h("div.prompt-sub", {}, lines[1]));
@@ -333,6 +333,8 @@ export function renderGame(root, navigate, config, backState) {
     ArrowDown: () => editor.nudge(-1),
     ArrowRight: () => editor.select(editor.selected + 1),
     ArrowLeft: () => editor.select(editor.selected - 1),
+    // Links / unlinks the selected dot's pair, like a double or right click.
+    " ": () => editor.toggleLink(),
   };
 
   // ---------- Confirm / Next

@@ -2,6 +2,15 @@
 
 Newest first. What changed and why.
 
+## 2026-11-26: Space and right click link dots
+
+Asked: Space should link the selected dot's pair the way right click
+does. Right click didn't actually do anything (only a double click
+linked), so both are new: Space toggles the link of the selected dot's
+pair (from the board or the value box), and a right click on a pair
+toggles it without opening the browser's menu. Prompts and How to play
+mention them. Checked in Firefox.
+
 ## 2026-11-24: Automatic moment curve under distributed loads
 
 New setting, on by default: in Practice's moment diagram the curve under
