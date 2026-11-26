@@ -84,7 +84,7 @@ export const mohr = {
         `Poševna ravnina, φ = ${phi}° (2φ = ${2 * phi}°):`,
         `σ_N = (σ_x + σ_y)/2 + (σ_x − σ_y)/2·cos 2φ + τ_{xy}·sin 2φ = ${num(st.C)} + ${par((sx - sy) / 2)}·${par(Math.cos(rad(2 * phi)))} + ${par(txy)}·${par(Math.sin(rad(2 * phi)))} = ${num(sN)} MPa`,
         `τ_N = −(σ_x − σ_y)/2·sin 2φ + τ_{xy}·cos 2φ = −${par((sx - sy) / 2)}·${par(Math.sin(rad(2 * phi)))} + ${par(txy)}·${par(Math.cos(rad(2 * phi)))} = ${num(tN)} MPa`,
-        `Mohrov krog: točki X(σ_x; τ_{xy}) = (${num(sx)}; ${num(txy)}) in Y(σ_y; −τ_{xy}) = (${num(sy)}; ${num(-txy)}) sta krajišči premera; os τ kaže navzgor. Točka N(σ_N; τ_N) = (${num(sN)}; ${num(tN)}) leži na krogu (kontrola: (σ_N − C)² + τ_N² = ${num((sN - st.C) ** 2 + tN ** 2)} = R² = ${num(st.R ** 2)}).`,
+        `Mohrov krog: točki X(σ_x, τ_{xy}) = (${num(sx)}, ${num(txy)}) in Y(σ_y, −τ_{xy}) = (${num(sy)}, ${num(-txy)}) sta krajišči premera; os τ kaže navzgor. Točka N(σ_N, τ_N) = (${num(sN)}, ${num(tN)}) leži na krogu (kontrola: (σ_N − C)² + τ_N² = ${num((sN - st.C) ** 2 + tN ** 2)} = R² = ${num(st.R ** 2)}).`,
       ],
       solutionFigure(f) {
         mohrCircle(f, sx, sy, txy, { extra: [{ p: [sN, tN], name: `N (φ = ${phi}°)` }] });
@@ -145,7 +145,7 @@ export const mohrInverzna = {
         answers: nearZero([ans("sx", "σ_x", "MPa", sx), ans("sy", "σ_y", "MPa", sy), ans("txy", "τ_{xy}", "MPa", txy)], ["sx", "sy"]),
         solution: [
           ...base,
-          `Točka X(σ_x; τ_{xy}) leži na krogu pod kotom 2α = ${num(2 * alpha)}° od smeri σ_1 (v Mohrovem krogu je kot podvojen):`,
+          `Točka X(σ_x, τ_{xy}) leži na krogu pod kotom 2α = ${num(2 * alpha)}° od smeri σ_1 (v Mohrovem krogu je kot podvojen):`,
           `σ_x = C + R·cos 2α = ${num(C)} + ${num(R)}·${par(c2)} = ${num(sx)} MPa`,
           `σ_y = C − R·cos 2α = ${num(sy)} MPa`,
           `τ_{xy} = R·sin 2α = ${num(R)}·${par(s2a)} = ${num(txy)} MPa`,

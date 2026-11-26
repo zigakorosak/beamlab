@@ -2,6 +2,13 @@
 
 Newest first. What changed and why.
 
+## 2026-11-26: Coordinates as (x, y)
+
+Asked: coordinates and vectors written (x, y), not (x; y). Changed in
+the reduction exercise (forces, points, moments, O(0, 0)), concurrent
+forces, Mohr's circle points (text and figure labels) and the inclined
+frame's unit vectors. Lists and max(a; b) keep their semicolons.
+
 ## 2026-11-26: Scrolling gets finer near the answer; scroll a whole line
 
 Asked: the wheel should get more accurate around the correct value, not

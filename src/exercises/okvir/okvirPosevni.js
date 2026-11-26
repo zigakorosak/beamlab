@@ -135,7 +135,7 @@ function buildVeja(p) {
     ],
     solution: [
       CONVENTION,
-      `Enotski vektor osi veje e = (${num(sx * Math.cos(rad(p.alpha)))}; ${num(Math.sin(rad(p.alpha)))}), normala proti črtkanim (spodnjim) vlaknom n = (${num(sx * Math.sin(rad(p.alpha)))}; ${num(-Math.cos(rad(p.alpha)))}).`,
+      `Enotski vektor osi veje e = (${num(sx * Math.cos(rad(p.alpha)))}, ${num(Math.sin(rad(p.alpha)))}), normala proti črtkanim (spodnjim) vlaknom n = (${num(sx * Math.sin(rad(p.alpha)))}, ${num(-Math.cos(rad(p.alpha)))}).`,
       `Prerez tik ob deblu, opazujemo zunanji del veje. Vsaka navpična sila F razpade na komponento vzdolž osi F·sin ${p.alpha}° (tlak, ker kaže proti deblu) in pravokotno komponento F·cos ${p.alpha}°.`,
       ...resultantLines(sol, { fu: "N" }),
       ...fieldLines(sol, model.members.map((m) => m.id), { fu: "N", mu: "Nm" }),

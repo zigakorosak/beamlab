@@ -73,7 +73,7 @@ export const sileF4 = {
         "Komponente sil: F_{ix} = F_i·cos α_i, F_{iy} = F_i·sin α_i.",
         ...forces.map((f, i) => {
           const [x, y] = comp(f.F, f.a);
-          return `${names[i]}: (${num(x)}; ${num(y)}) kN`;
+          return `${names[i]}: (${num(x)}, ${num(y)}) kN`;
         }),
         `Rezultanta znanih sil: R_x = ΣF_{ix} = ${num(Rx)} kN, R_y = ΣF_{iy} = ${num(Ry)} kN.`,
         `Ravnotežje: F_4 = −R → F_{4x} = ${num(-Rx)} kN, F_{4y} = ${num(-Ry)} kN.`,

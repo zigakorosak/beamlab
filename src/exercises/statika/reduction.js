@@ -17,7 +17,7 @@ import { s, arrowHead } from "../../render/svg.js";
 
 /** A number for a formula: negative ones in parentheses. */
 const p = (v) => (v < 0 ? `(${num(v)})` : num(v));
-const vec = (v, unit = "") => `(${v.map((x) => num(x)).join("; ")})${unit ? " " + unit : ""}`;
+const vec = (v, unit = "") => `(${v.map((x) => num(x)).join(", ")})${unit ? " " + unit : ""}`;
 
 const sub = (a, b) => a.map((x, i) => x - b[i]);
 const add = (a, b) => a.map((x, i) => x + b[i]);
@@ -65,7 +65,7 @@ export const redukcija2d = {
       title: this.title,
       text: [
         `Reducirajte sistem treh sil ${forces.map((f, i) => `${names[i]} = ${vec(f.F, "kN")} s prijemališčem r_${i + 1} = ${vec(f.at, "m")}`).join(", ")}`,
-        `a) v točko T${vec(T, "m")}, b) v koordinatno izhodišče O(0; 0).`,
+        `a) v točko T${vec(T, "m")}, b) v koordinatno izhodišče O(0, 0).`,
         "c) Kje premica rezultante seka os x?",
         "Momenti so okrog osi z, pozitivni v nasprotni smeri urinega kazalca.",
       ],
@@ -106,7 +106,7 @@ export const redukcija2d = {
         ...forces.map((g, i) => `${names[i]}: ${p(g.at[0])}·${p(g.F[1])} − ${p(g.at[1])}·${p(g.F[0])} = ${num(mO[i])} kNm`),
         `M_O = ${mO.map(p).join(" + ")} = ${num(MO)} kNm.`,
         `Kontrola: M_T = M_O − (x_T·R_y − y_T·R_x) = ${num(MO)} − (${p(T[0])}·${p(R[1])} − ${p(T[1])}·${p(R[0])}) = ${num(MT)} kNm.`,
-        `c) Na premici rezultante je M = 0. Za točko (x_0; 0) velja M_O = x_0·R_y − 0·R_x → x_0 = M_O / R_y = ${num(MO)} / ${p(R[1])} = ${num(x0)} m.`,
+        `c) Na premici rezultante je M = 0. Za točko (x_0, 0) velja M_O = x_0·R_y − 0·R_x → x_0 = M_O / R_y = ${num(MO)} / ${p(R[1])} = ${num(x0)} m.`,
       ],
     };
   },

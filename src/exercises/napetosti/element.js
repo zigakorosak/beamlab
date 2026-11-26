@@ -178,7 +178,7 @@ export function mohrCircle(f, sx, sy, txy, { extra = [], unit = "MPa", names = [
     const { dx, anchor } = side(p), dy = vert(p), flip = anchor === "start" ? "end" : "start";
     return [[dx, dy === -8 ? 16 : -8, anchor], [-dx, dy, flip], [-dx, dy === -8 ? 16 : -8, flip]];
   };
-  // On a phone the long "X (σ; τ)" texts go inside the circle, towards the
+  // On a phone the long "X (σ, τ)" texts go inside the circle, towards the
   // σ axis (beside the points, outside, they took most of the width); or
   // outside, beside the point or a row further out; or, when the circle is
   // crowded, clear of it over the point: above its top (a point in the upper
@@ -206,7 +206,7 @@ export function mohrCircle(f, sx, sy, txy, { extra = [], unit = "MPa", names = [
       (g) => g.point(p, text, { ...side(p), dy: vert(p), alts: others(p) }),
     );
   };
-  for (const [p, name] of [[X, names[0]], [Y, names[1]]]) pointText(p, `${name} (${num(p[0])}; ${num(p[1])})`);
+  for (const [p, name] of [[X, names[0]], [Y, names[1]]]) pointText(p, `${name} (${num(p[0])}, ${num(p[1])})`);
   f.point([C, 0], `C = ${num(C)}`, { dx: 0, dy: 16, anchor: "middle", alts: [[0, -8, "middle"], [6, 16, "start"], [-6, 16, "end"], [6, -8, "start"], [-6, -8, "end"], [0, 30, "middle"], [0, -22, "middle"]] });
   f.point([st.s1, 0], `σ_1 = ${num(st.s1)}`, { dx: 6, dy: 16, anchor: "start", alts: [[6, -8, "start"], [6, 30, "start"], [-6, -22, "end"], [-6, 44, "end"], [6, -22, "start"], [6, 44, "start"]] });
   f.point([st.s2, 0], `σ_2 = ${num(st.s2)}`, { dx: -6, dy: 16, anchor: "end", alts: [[-6, -8, "end"], [-6, 30, "end"], [-6, -22, "end"], [-6, 44, "end"]] });
