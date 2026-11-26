@@ -215,13 +215,13 @@ export function renderGame(root, navigate, config, backState) {
           const name = c === "m" ? `M${r.name}` : `${r.name}${c}`;
           const input = h("input.reaction-input", { type: "text", inputmode: "decimal", autocomplete: "off", spellcheck: false, "aria-label": name });
           selectOnFocus(input);
-          // Steps that grow with the value, fine enough to land on a
-          // right answer (core/ladder.js); a tenth of a step with Shift.
+          // Coarse steps far from the answer, finer ones near it
+          // (core/ladder.js); the finest step with Shift.
           const unit = c === "m" ? "kNm" : "kN";
           const all = sol.reactions.flatMap((q) =>
             [{ answer: q.Rx, unit: "kN" }, { answer: q.Ry, unit: "kN" }, ...(q.type === "fixed" ? [{ answer: q.M, unit: "kNm" }] : [])],
           );
-          wheelNumber(input, reactionLadder(reactionScale(all, unit)), () => phase === "answering");
+          wheelNumber(input, reactionLadder({ x: r.Rx, y: r.Ry, m: r.M }[c], reactionScale(all, unit)), () => phase === "answering");
           input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
               e.preventDefault();
@@ -316,7 +316,10 @@ export function renderGame(root, navigate, config, backState) {
 
   function syncValueBox(force = false) {
     if (!valueInput || !editor) return;
-    valueLabel.textContent = `Dot ${editor.selected + 1} of ${editor.dots.length}: ${editor.describe()}`;
+    valueLabel.textContent =
+      editor.selectedSegment >= 0
+        ? `Line: ${editor.describe()}`
+        : `Dot ${editor.selected + 1} of ${editor.dots.length}: ${editor.describe()}`;
     if (force || document.activeElement !== valueInput) valueInput.value = boxText(editor.dots[editor.selected].value);
   }
 

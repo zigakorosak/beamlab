@@ -3,7 +3,7 @@
 // value. Shared by Practice (game.js) and the exam exercises.
 
 import { fmt, parseNumber } from "../core/format.js";
-import { ladderStep, stepAt } from "../core/ladder.js";
+import { ladderStep } from "../core/ladder.js";
 
 /** The text in a number box, as typed: plain "-", no "−". */
 export const boxText = (v) => fmt(v).replace("−", "-");
@@ -44,15 +44,15 @@ export function wheelSteps(input, onStep) {
   );
 }
 
-/** A box that steps along a ladder on the wheel (core/ladder.js: steps
- *  that grow with the value, always fine enough to land within the
- *  grading tolerance); Shift: a tenth of the step, off the ladder.
+/** A box that steps along a ladder on the wheel (core/ladder.js: coarse
+ *  steps far from the answer, finer near it, down to one that lands
+ *  within the grading tolerance); Shift: the finest step, off the ladder.
  *  `format` writes the new value back (default: Practice's two decimals). */
 export function wheelNumber(input, ladder, canEdit = () => true, format = boxText) {
   wheelSteps(input, (dir, e) => {
     if (!canEdit()) return;
     const old = parseNumber(input.value) ?? 0;
-    const v = e.shiftKey ? old + (dir * stepAt(Math.abs(old), ladder)) / 10 : ladderStep(old, dir, ladder);
+    const v = e.shiftKey ? old + dir * ladder.fine : ladderStep(old, dir, ladder);
     input.value = format(Math.round(v * 1e6) / 1e6);
     input.dispatchEvent(new Event("input"));
     input.focus({ preventScroll: true });

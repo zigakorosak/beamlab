@@ -2,6 +2,18 @@
 
 Newest first. What changed and why.
 
+## 2026-11-26: Scrolling gets finer near the answer; scroll a whole line
+
+Asked: the wheel should get more accurate around the correct value, not
+(as it was) fine near 0 and coarse for big values; same for diagrams;
+and a selected line should scroll as a whole. The ladder is now built
+around the answer (coarse multiples anywhere, finer 1-2-5 steps in
+zones around it, finest ≤ the tolerance), for reactions, exam answers
+and diagram dots (which used to move one snap step per notch). Grabbing
+a line selects it until a dot is picked; the wheel, ↑ ↓ and the value
+box move the whole line. Tests: every reaction, exam answer and diagram
+dot reachable by scrolling alone.
+
 ## 2026-11-26: Space and right click link dots
 
 Asked: Space should link the selected dot's pair the way right click

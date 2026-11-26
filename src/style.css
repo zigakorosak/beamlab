@@ -1307,6 +1307,15 @@ line.hit {
   stroke-width: 2;
 }
 
+/* A selected line (diagramEditor.js): the wheel moves all of it. */
+.segment-selected {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 7;
+  stroke-linecap: round;
+  opacity: 0.45;
+}
+
 .dot-ring {
   fill: none;
   stroke: var(--accent);

@@ -289,6 +289,9 @@ full solution, diagrams already done stay up (solved, faint) as help.
   player's curve and not on a dot (12 px) grabs that segment: its end dots
   and middle dot (and the partners of linked end dots) move together by
   whole snap steps. The mouse cursor turns to a grab hand over the line.
+  Grabbing it also selects the line (highlighted): the wheel, ↑ ↓ and the
+  value box (its left end's value) then move the whole line, until a dot
+  is picked (press, ← →, Tab).
 - **Linked pairs**: two taps within 400 ms on an interior key point's dots
   (either one, each press moving < 6 px) link them: the partner takes the
   tapped dot's value, and from then on dragging, typing, nudging and the
@@ -306,22 +309,23 @@ full solution, diagrams already done stay up (solved, faint) as help.
   pad has `touch-action: none` and cancels its own touchstart/touchmove
   (a flick otherwise left a fling that ate the next tap); the rest of the
   board still scrolls the round on a phone. Hidden after Confirm.
-- **Wheel ladder** (`core/ladder.js`): one notch moves a number box to
-  the next value on a fixed ladder whose step grows with the value: the
-  largest 1-2-5 step not above a tenth of it (… 1.9, 2, 2.2 … 4.8, 5,
-  5.5 … 9.5, 10, 11 …), never below a floor `min` (near 0) and, for
-  absolute tolerances, never above `max`. A step of at most a tenth of
-  the value keeps the nearest ladder value within 5 % of any answer, so
-  every answer can be scrolled to without typing decimals. The floor is
-  twice the smallest tolerance of the box: for reactions, from the
-  largest reaction in the unit (`reactionScale`, the same for every box
-  in the unit, so it gives nothing away); for exam answers, from `scale`,
-  or a hundredth of the value when it's graded to 5 % alone; angles
-  (`tol` 1°) step by 1°. Typed values in between step to their ladder
-  neighbours. `test/ladder.test.mjs` scrolls to every reaction and exam
-  answer from 0. Diagram dots already were fine: the snap step is never
-  coarser than their tolerance (checked: 45,372 dots, all right at the
-  nearest snap).
+- **Wheel ladder** (`core/ladder.js`): one notch moves a number to the
+  next value on a fixed ladder built around the right answer: multiples
+  of a `coarse` step anywhere, and multiples of each finer 1-2-5 step s
+  within 5·s of the answer, down to `fine` (e.g. answer 63.3, fine 1,
+  coarse 20: 0 20 30 40 45 50 54 55 56 58 59 60 61 62 63 64 65 …). So
+  steps are coarse far off and get finer only close to the answer (which
+  gives it away a little; accepted, it's practice). Each zone is wider
+  than the next coarser step, so scrolling can't jump past a finer zone
+  (~2–3 notches per step size). `fine` is the largest 1-2-5 number not
+  above the answer's tolerance (nearest value within half of it);
+  reactions: coarse their `reactionScale` (a third of the largest); exam answers: a quarter
+  of max(|value|, scale); angles 1° near, 20° far, modulo the period.
+  Shift steps by `fine`, off the ladder. Diagram dots use it too (fine
+  half a snap step, coarse the grid step, target the dot's own value); a
+  selected line moves by its left end's notch. `test/ladder.test.mjs`
+  scrolls to every reaction and exam answer from 0,
+  `test/editor.test.mjs` to every diagram dot (worst 16 notches).
 - One point per stage that's entirely right. Summary: "Game Over", score,
   times, and every beam with each stage ✓ or ✗ right/total; Play Again /
   Back / Home, inert for the first 500 ms (`REPORT_GUARD_MS`, as in

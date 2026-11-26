@@ -10,7 +10,11 @@
 // straight line between its ends depends only on the load on that piece),
 // so the player sets the key points and the curve bulges by itself.
 //
-// Grabbing the line (away from the dots) drags that whole segment. Double
+// Grabbing the line (away from the dots) drags that whole segment, and
+// selects it: the wheel, ↑ ↓ and the value box then move the whole line
+// until a dot is picked. The wheel steps along core/ladder.js: coarse far
+// from the dot's right value, finer near it (for a line, its left end's).
+// Double
 // clicking (or double tapping) a key point's pair of dots links them: they
 // move as one (no jump there) until another double click unlinks them.
 //
@@ -23,6 +27,7 @@
 import { maxAbs, momentExtrema, sampleDiagram } from "../core/solver.js";
 import { niceStep, fmt } from "../core/format.js";
 import { closeEnough } from "../core/grading.js";
+import { ladderStep, niceFloor } from "../core/ladder.js";
 import { s } from "../render/svg.js";
 import { DIAGRAMS, drawDiagram, keyLabels } from "../render/diagramView.js";
 
@@ -98,6 +103,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
   }
 
   let selected = 0;
+  let selectedSeg = -1; // a selected line (segment index), else -1
   let revealed = false;
   let geom = null; // { X, mid, k, top, height } from the last draw
   let pad = null; // the input layer over the band (attach)
@@ -111,7 +117,11 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
   const valueToY = (v) => geom.mid + (flip ? 1 : -1) * v * geom.k;
   const yToValue = (y) => ((y - geom.mid) / (flip ? 1 : -1)) / geom.k;
   const dotX = (d) => geom.X(d.x) + (d.side === "-" ? -SIDE_OFFSET : d.side === "+" ? SIDE_OFFSET : 0);
-  const clampSnap = (v) => Math.max(-scaleMax, Math.min(scaleMax, Math.round(v / step) * step));
+  const clamp = (v) => Math.max(-scaleMax, Math.min(scaleMax, v));
+  const clampSnap = (v) => clamp(Math.round(v / step) * step);
+  // One wheel notch for dot i: down to half a snap step near its answer.
+  const notch = (i, dir) =>
+    clamp(ladderStep(dots[i].value, dir, { target: dots[i].answer, fine: niceFloor(step / 2), coarse: niceFloor(gridStep) }));
 
   /** Segment i (xs[i] … xs[i+1]): the indices of its dots, left, mid, right. */
   function segmentDots(i) {
@@ -125,6 +135,22 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       mid: find((d) => d.side === "mid" && d.x > a && d.x < b),
       right: find((d) => d.side === "-" && Math.abs(d.x - b) < 1e-9),
     };
+  }
+
+  /** The dots that move with segment i: its own, and their linked partners. */
+  function segmentGroup(i) {
+    const { left, mid, right } = segmentDots(i);
+    return [...new Set([left, mid, right].filter((j) => j >= 0).flatMap(group))];
+  }
+  const shiftSegment = (i, delta) => {
+    for (const j of segmentGroup(i)) dots[j].value = clamp(dots[j].value + delta);
+  };
+  /** One notch for the selected dot, or the selected line (by its left end). */
+  function nudge(dir) {
+    if (selectedSeg >= 0) {
+      const { left } = segmentDots(selectedSeg);
+      shiftSegment(selectedSeg, notch(left, dir) - dots[left].value);
+    } else setDot(selected, notch(selected, dir));
   }
 
   /** The player's value at x on segment i: straight, or a parabola through the middle dot. */
@@ -196,6 +222,17 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       g.append(sol2.g);
     }
 
+    // The selected line, under the dots.
+    if (selectedSeg >= 0 && !revealed) {
+      const { a, b } = segmentDots(selectedSeg);
+      const n = 24;
+      const d = Array.from({ length: n + 1 }, (_, j) => {
+        const x = a + ((b - a) * j) / n;
+        return `${j ? "L" : "M"}${X(x).toFixed(1)},${valueToY(segmentValue(selectedSeg, x)).toFixed(1)}`;
+      }).join("");
+      g.append(s("path.segment-selected", { d }));
+    }
+
     // Linked pairs: one capsule around both dots.
     if (!revealed)
       for (const k of linked) {
@@ -209,7 +246,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       const cls = revealed ? (ok(d) ? ".is-correct" : ".is-wrong") : "";
       const px = dotX(d);
       const py = valueToY(d.value);
-      if (selectedGroup.length === 1 && i === selected && !revealed) g.append(s("circle.dot-ring", { cx: px, cy: py, r: 11 }));
+      if (selectedGroup.length === 1 && i === selected && selectedSeg < 0 && !revealed) g.append(s("circle.dot-ring", { cx: px, cy: py, r: 11 }));
       g.append(s(`circle.dot${cls}${d.side === "mid" ? ".is-mid" : ""}`, { cx: px, cy: py, r: 6, dataset: { dot: i } }));
     });
     if (!revealed) {
@@ -259,10 +296,9 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       const seg = idx < 0 ? segmentAt(p, e.pointerType) : -1;
       if (seg >= 0) {
         // Grab the whole segment: its dots, and their linked partners.
-        const { left, mid, right } = segmentDots(seg);
-        const moving = new Set([left, mid, right].filter((j) => j >= 0).flatMap(group));
-        drag = { kind: "segment", startValue: yToValue(p.y), orig: [...moving].map((j) => [j, dots[j].value]) };
-        selected = left;
+        drag = { kind: "segment", startValue: yToValue(p.y), orig: segmentGroup(seg).map((j) => [j, dots[j].value]) };
+        selected = segmentDots(seg).left;
+        selectedSeg = seg;
         press = null;
       } else {
         if (idx < 0) {
@@ -287,6 +323,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
           if (dotAt(p) !== idx) setDot(idx, clampSnap(yToValue(p.y)));
         }
         selected = idx;
+        selectedSeg = -1;
       }
       e.preventDefault();
       pad.setPointerCapture(e.pointerId);
@@ -304,7 +341,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       if (press && Math.hypot(p.x - press.x, p.y - press.y) > TAP_SLOP) press = null;
       if (drag.kind === "segment") {
         const delta = Math.round((yToValue(p.y) - drag.startValue) / step) * step;
-        for (const [j, v] of drag.orig) dots[j].value = clampSnap(v + delta);
+        for (const [j, v] of drag.orig) dots[j].value = clamp(v + delta);
       } else setDot(selected, clampSnap(yToValue(p.y)));
       onSelect?.(e);
       redraw();
@@ -334,6 +371,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       if (idx < 0 || pairOf(idx) < 0) return;
       toggleLink(idx);
       selected = idx;
+      selectedSeg = -1;
       onSelect?.(e);
       redraw();
     };
@@ -349,7 +387,7 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
       const d = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
       if (!d) return;
       e.preventDefault();
-      setDot(selected, clampSnap(dots[selected].value + (d < 0 ? 1 : -1) * step));
+      nudge(d < 0 ? 1 : -1);
       onSelect?.(e);
       redraw();
     };
@@ -373,25 +411,35 @@ export function createDiagramEditor({ sol, model, kind, momentSide, autoMid = tr
     get selected() {
       return selected;
     },
+    /** The selected line's segment index, or -1 when a dot is selected. */
+    get selectedSegment() {
+      return selectedSeg;
+    },
     select(i) {
       // ← → step over a linked partner: the pair is one stop.
       const wrap = (j) => (j + dots.length) % dots.length;
       let next = wrap(i);
       if (next !== selected && group(selected).includes(next)) next = wrap(next + (i < selected ? -1 : 1));
       selected = next;
+      selectedSeg = -1;
     },
     /** Links or unlinks the selected dot's pair (Space). */
     toggleLink() {
       toggleLink(selected);
     },
-    nudge(dir) {
-      setDot(selected, clampSnap(dots[selected].value + dir * step));
-    },
+    nudge,
     setValue(v) {
-      setDot(selected, Math.max(-scaleMax * 2, Math.min(scaleMax * 2, v)));
+      v = Math.max(-scaleMax * 2, Math.min(scaleMax * 2, v));
+      // A selected line moves as a whole, its left end to v.
+      if (selectedSeg >= 0) shiftSegment(selectedSeg, v - dots[segmentDots(selectedSeg).left].value);
+      else setDot(selected, v);
     },
     /** "just left of x = 2 m" etc. */
     describe(i = selected) {
+      if (selectedSeg >= 0 && i === selected) {
+        const { a, b } = segmentDots(selectedSeg);
+        return `the line from x = ${fmt(a)} to ${fmt(b)} m (value at its left end)`;
+      }
       const d = dots[i];
       if (group(i).length > 1) return `both sides of x = ${fmt(d.x)} m (linked)`;
       const where = d.side === "-" ? "just left of" : d.side === "+" ? "just right of" : "halfway, at";

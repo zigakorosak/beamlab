@@ -42,3 +42,37 @@ test("halfway dots when automatic is off: M gets its middle dots back", () => {
   assert.ok(!on.dots.some((d) => d.side === "mid"));
   // V keeps its middle dots under a varying load either way (not affected).
 });
+
+test("wheel: every diagram dot can be scrolled to a right value, finer steps near it", () => {
+  let seed = 77;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  let worst = 0;
+  for (const t of BEAM_TYPES)
+    for (const lv of LEVELS)
+      for (let i = 0; i < 15; i++) {
+        const model = generateProblem(t.id, lv.id, rnd);
+        const sol = solve(model);
+        for (const kind of ["V", "M"]) {
+          const ed = createDiagramEditor({ sol, model, kind, momentSide: "up", autoMid: false });
+          ed.dots.forEach((d, i) => {
+            ed.select(i);
+            // Overshoot-free: scroll towards the answer until a notch would pass it.
+            let n = 0;
+            for (; n < 200; n++) {
+              const dir = Math.sign(d.answer - d.value);
+              const before = d.value;
+              if (!dir) break;
+              ed.nudge(dir);
+              if (Math.sign(d.answer - d.value) !== dir) {
+                // Passed it: take the closer of the two.
+                if (Math.abs(before - d.answer) < Math.abs(d.value - d.answer)) d.value = before;
+                break;
+              }
+            }
+            worst = Math.max(worst, n);
+          });
+          assert.ok(ed.grade().ok, `${t.id}/${lv.id} ${kind}`);
+        }
+      }
+  assert.ok(worst <= 40, `${worst} notches`);
+});
